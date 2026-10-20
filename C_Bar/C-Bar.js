@@ -2703,6 +2703,8 @@ function createScriptTile(shortcut) {
   d.onMousePress = function (position, button) {
     if (button === "left") {
       createNode(shortcut);
+    } else if (button === "right") {
+      showBarMenu();
     }
   };
   return d;
@@ -2762,6 +2764,10 @@ function createExpressionTile(shortcut, tip) {
   addExpressionGlyph(d, size);
   d.setToolTip(tip);
   d.onMousePress = function (position, button) {
+    if (button === "right") {
+      showBarMenu();
+      return;
+    }
     if (button !== "left") {
       return;
     }
@@ -2902,6 +2908,8 @@ function createPageButton(n) {
   d.onMousePress = function (position, button) {
     if (button === "left") {
       startLongPress();
+    } else if (button === "right") {
+      showBarMenu();
     }
   };
   d.onMouseRelease = function (position, button) {
@@ -3398,6 +3406,11 @@ function createSpacerTile() {
       addSpacer(currentBar.id);
     }
   };
+  d.onMousePress = function (position, button) {
+    if (button === "right") {
+      showBarMenu();
+    }
+  };
   return d;
 }
 
@@ -3416,6 +3429,11 @@ function createDoneTile() {
   d.onMouseRelease = function (position, button) {
     if (button === "left") {
       toggleEditMode();
+    }
+  };
+  d.onMousePress = function (position, button) {
+    if (button === "right") {
+      showBarMenu();
     }
   };
   return d;
@@ -3479,6 +3497,8 @@ function makeBar(vertical) {
   container.onMousePress = function (position, button) {
     if (button === "left") {
       startLongPress();
+    } else if (button === "right") {
+      showBarMenu();
     }
   };
   container.onMouseRelease = function () {
@@ -4846,6 +4866,15 @@ function buildMainMenu() {
   ui.addMenuItem({ name: "" });
   ui.addMenuItem({ name: "Unlock Size (resize)", onMouseRelease: freeSize });
   ui.addMenuItem({ name: "Fit Bar to Buttons", onMouseRelease: fitToButtons });
+}
+
+// A Container or ui.Draw with a mouse callback keeps the right-click for
+// itself, so the window's own context menu does not open there: the bar
+// and its page buttons open it themselves.
+function showBarMenu() {
+  cancelLongPress();
+  buildMainMenu();
+  ui.showContextMenu();
 }
 
 var menuRestoreTimer = null;

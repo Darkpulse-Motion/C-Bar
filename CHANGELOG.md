@@ -25,6 +25,7 @@
 - Windows: after a message or a file dialog opened from a secondary window (Add, Expression, Rig, Bar, Config), that window comes back in front of Settings instead of being hidden behind it. The Add window also opens in front of Settings like the other windows.
 - The bar keeps Cavalry's default background after Organize Layout (leaving the mode painted the whole bar with another grey).
 - Clicking *Hide page selector* in Settings no longer switches the bar to Organize Layout: a pending long press is cancelled whenever the bar is rebuilt or Settings opens.
+- Right-click on an empty part of the bar or on a page button opens the bar menu again (with *Organize Layout* first): the long-press handler had taken the right-click away from the window.
 
 ### Rigs
 - Recalling a rig now lists, in the console, the inputs that come from layers outside the rig. Rigs remember the scene they were saved from, so the message asks you to check those links when the rig is recalled in another scene (where such a layer id can point to an unrelated layer). Exported bars do not include that scene path.
