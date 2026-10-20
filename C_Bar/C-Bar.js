@@ -2538,6 +2538,76 @@ function captureLayerPreset(layerId) {
   return preset;
 }
 
+// Serialised copy of one layer (comp id replaced by a token, as rigs do).
+function captureSnapshot(layerId) {
+  try {
+    var data = api.serialise([layerId], true);
+    var comp = api.getActiveComp();
+    if (comp) {
+      data = data.replace(new RegExp(escapeRegExp(comp) + "(?=[.\"])", "g"), RIG_COMP_TOKEN);
+    }
+    return data;
+  } catch (e) {
+    logStatus("Snapshot not saved (" + e + "): only the settings are kept.");
+    return null;
+  }
+}
+
+// Recreates a snapshot in the active composition and returns the new
+// node. Only the node itself is kept (layers serialised with it are
+// removed), and inputs that come from outside it are disconnected: in
+// another scene the same layer id can be an unrelated layer. Links
+// between its own attributes stay.
+function restoreSnapshot(snapshot, type) {
+  var comp = api.getActiveComp();
+  var data = String(snapshot).split(RIG_COMP_TOKEN).join(comp || "");
+  var before = {};
+  var existing = api.getAllSceneLayers() || [];
+  for (var i = 0; i < existing.length; i++) {
+    before[existing[i]] = true;
+  }
+  try { api.deserialise(data); } catch (e) {
+    return null;
+  }
+  var created = [];
+  var all = api.getAllSceneLayers() || [];
+  for (var j = 0; j < all.length; j++) {
+    if (!before[all[j]]) {
+      created.push(all[j]);
+    }
+  }
+  var root = null;
+  for (var r = 0; r < created.length && !root; r++) {
+    if (api.getLayerType(created[r]) === type) {
+      root = created[r];
+    }
+  }
+  if (!root) {
+    for (var d0 = 0; d0 < created.length; d0++) {
+      try { api.deleteLayer(created[d0]); } catch (eDel0) {}
+    }
+    return null;
+  }
+  for (var c = 0; c < created.length; c++) {
+    if (created[c] !== root) {
+      try { api.deleteLayer(created[c]); } catch (eDel) {}
+    }
+  }
+  var attrs = [];
+  try { attrs = api.getInConnectedAttributes(root) || []; } catch (e2) {}
+  for (var a = 0; a < attrs.length; a++) {
+    var src = "";
+    try { src = String(api.getInConnection(root, attrs[a]) || ""); } catch (e3) {}
+    var dot = src.indexOf(".");
+    var srcLayer = dot === -1 ? src : src.substr(0, dot);
+    if (src && srcLayer !== root && dot !== -1) {
+      try { api.disconnect(srcLayer, src.substr(dot + 1), root, attrs[a]); } catch (e4) {}
+    }
+  }
+  try { api.parent(root, comp); } catch (e5) {}
+  return root;
+}
+
 function addFavoriteFromSelection(targetId) {
   var sel = api.getSelection();
   if (sel.length !== 1) {
@@ -2548,6 +2618,13 @@ function addFavoriteFromSelection(targetId) {
   var type = api.getLayerType(layerId);
   var name = api.getNiceName(layerId);
   var preset = captureLayerPreset(layerId);
+  // Snapshot of the node as Cavalry saves it: values, expressions,
+  // keyframes and the connections between its own attributes (e.g. an
+  // Oscillator's Minimum driven by its Maximum with value*-1).
+  var snapshot = captureSnapshot(layerId);
+  if (snapshot) {
+    preset.snapshot = snapshot;
+  }
   mutateBarShortcuts(typeof targetId === "string" ? targetId : currentBar.id, function (l) {
     l.push({ type: type, label: name, preset: preset, uid: makeUid("fav_" + type) });
   });
@@ -2557,6 +2634,17 @@ function addFavoriteFromSelection(targetId) {
 function createFromFavorite(shortcut, forcedTarget) {
   var p = shortcut.preset || {};
   var attrTarget = forcedTarget || getSelectedAttributeTarget();
+  if (p.snapshot) {
+    var restored = restoreSnapshot(p.snapshot, shortcut.type);
+    if (restored) {
+      try { api.rename(restored, shortcut.label); } catch (eName) {}
+      logStatus("Favourite created: " + api.getNiceName(restored));
+      linkToSelectedAttribute(restored, attrTarget, shortcut.label);
+      api.select([restored]);
+      return;
+    }
+    logStatus("Favourite snapshot could not be restored: created from its saved settings instead.");
+  }
   var nodeId;
   try {
     nodeId = api.create(shortcut.type, shortcut.label);

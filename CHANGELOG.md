@@ -5,6 +5,9 @@
 ### Fixed
 - Organize Layout no longer starts by itself after a click, an Alt + click or the + menu: the press on a button also reached the bar, but not its release. The long press now only starts on an empty part of the bar, and any button click cancels it.
 
+### Changed
+- **Add Selected Layer** saves a snapshot of the node: values, expressions, keyframes and the links between its own attributes (e.g. an Oscillator whose Minimum is driven by its Maximum with `value*-1`). Links to other layers are not kept. Favourites saved before keep working with their settings.
+
 ## v0.9.1 — 2026-10-20 (beta, private test)
 
 ### Added

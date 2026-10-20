@@ -40,7 +40,7 @@ Your bars, rigs and icons live in `C-Bar_assets/` and are never touched by an up
 | Button | Action |
 |---|---|
 | Shortcut | Click: create / run it. Alt + click: see below. |
-| **+** | Add a node or script, the selected layer (favourite), the selected layer as a rig, an expression, a spacer. |
+| **+** | Add a node or script, the selected layer (favourite: a snapshot with its values, expressions, keyframes and internal links), the selected layer as a rig, an expression, a spacer. |
 | **⚙** | Settings panel. |
 | **1 2 3 4** | Page selector: show that page (the number of the current one is green). The bar opens on page 1. New shortcuts go to the page shown. |
 
