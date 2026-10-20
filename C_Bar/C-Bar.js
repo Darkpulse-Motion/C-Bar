@@ -2857,6 +2857,11 @@ function makeBar(vertical) {
       // Content height fits inside the view: no vertical scroll bar.
       container.setFixedHeight(BAR_THICKNESS - 4);
       scroll.setFixedHeight(BAR_THICKNESS);
+      // An explicit minimum width: otherwise the scroll view takes the
+      // width of its content as its own minimum, the docked window can
+      // never be narrower than the buttons, and the dock simply cuts them
+      // off instead of showing the horizontal scroll bar.
+      try { scroll.setMinimumWidth(BAR_THICKNESS); } catch (eMin) {}
       bar.root = scroll;
       bar.scroll = scroll;
     } catch (eScroll) {
@@ -2968,17 +2973,32 @@ function barContentLength() {
   return len;
 }
 
+// Width (horizontal) or height (vertical) actually available to the bar.
+// Horizontal: the smaller of the window size and the scroll view's own
+// width, because a docked window can report the size of its content.
+function availableLength() {
+  var size = null;
+  try { size = ui.size(); } catch (e) {}
+  var len = 0;
+  if (size) {
+    len = isVertical() ? (size.height !== undefined ? size.height : size.y) :
+      (size.width !== undefined ? size.width : size.x);
+  }
+  if (!isVertical() && mainBar && mainBar.scroll) {
+    var g = null;
+    try { g = mainBar.scroll.geometry(); } catch (e2) {}
+    if (g && g.width > 0 && (!len || g.width < len)) {
+      len = g.width;
+    }
+  }
+  return len > 0 ? Math.round(len) : 0;
+}
+
 function updateOverflow() {
   if (sizeFree) {
     return;
   }
-  var size = null;
-  try { size = ui.size(); } catch (e) { return; }
-  if (!size) {
-    return;
-  }
-  var available = isVertical() ? (size.height !== undefined ? size.height : size.y) :
-    (size.width !== undefined ? size.width : size.x);
+  var available = availableLength();
   if (!available) {
     return;
   }
@@ -2992,15 +3012,17 @@ function updateOverflow() {
 // Horizontal: the scroll view never gets wider than the window, so a
 // docked window that is too narrow shows the horizontal scroll bar
 // instead of cutting the buttons off.
+var lastFitWidth = -1;
 function fitScrollToWindow() {
   if (!mainBar || !mainBar.scroll) {
     return;
   }
   var size = null;
   try { size = ui.size(); } catch (e) { return; }
-  var w = size ? (size.width !== undefined ? size.width : size.x) : 0;
-  if (w > 0) {
-    try { mainBar.scroll.setMaximumWidth(Math.round(w)); } catch (e2) {}
+  var w = size ? Math.round(size.width !== undefined ? size.width : size.x) : 0;
+  if (w > 0 && w !== lastFitWidth) {
+    lastFitWidth = w;
+    try { mainBar.scroll.setMaximumWidth(w); } catch (e2) {}
   }
 }
 
@@ -3008,6 +3030,27 @@ ui.onResize = function () {
   fitScrollToWindow();
   updateOverflow();
 };
+
+// Resizing a docked panel does not always fire onResize: the horizontal
+// bar also checks its size a few times per second (cheap, nothing is
+// rebuilt unless the size changed).
+var resizeTimer = null;
+function startResizeWatch() {
+  if (isVertical()) {
+    return;
+  }
+  try {
+    resizeTimer = new api.Timer({
+      onTimeout: function () {
+        fitScrollToWindow();
+        updateOverflow();
+      }
+    });
+    resizeTimer.setInterval(400);
+    resizeTimer.setRepeating(true);
+    resizeTimer.start();
+  } catch (e) {}
+}
 
 function freeSize() {
   sizeFree = true;
@@ -4652,6 +4695,9 @@ ui.onClose = function () {
     if (menuRestoreTimer) {
       menuRestoreTimer.stop();
     }
+    if (resizeTimer) {
+      resizeTimer.stop();
+    }
   } catch (e) {}
 };
 
@@ -4668,4 +4714,5 @@ applySizeLimits();
 // button, then left free to be resized (or docked).
 openAtFullLength();
 ui.show();
+startResizeWatch();
 try { syncBarScripts(); } catch (eSync) {}
