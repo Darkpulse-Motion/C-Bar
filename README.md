@@ -32,7 +32,7 @@ Other bars are created from the Settings panel (⚙). Each one gets its own `C-B
 
 ### Updating
 
-**Settings › Update C-Bar** checks the latest release on GitHub: its text turns green when a newer version exists. Click it to see the current and new version numbers and confirm; the previous `C-Bar.js` is kept in `C-Bar_assets/backup/`, the other bars are regenerated, then reopen your bars.
+**Settings › Update…** checks the latest release on GitHub: its text turns green when a newer version exists. Click it to see the current and new version numbers and confirm; the previous `C-Bar.js` is kept in `C-Bar_assets/backup/`, the other bars are regenerated, then reopen your bars.
 
 To update by hand, replace `C-Bar.js` only. The next time any bar opens, the other `C-Bar_<Name>.js` files are regenerated automatically; reopen the bars that were already open.
 Your bars, rigs and icons live in `C-Bar_assets/` and are never touched by an update.
@@ -88,6 +88,7 @@ Select a layer and use **+ › Add Selected Layers as Rig…**. Choose what to i
 - **Shortcuts** of the bar selected below: drag to reorder (Shift / Cmd for several), double-click to rename, **…** to move to another page or edit an expression. The **1 2 3 4** selector above the list chooses the page shown.
 - **Add…**, **Spacer**, **Reset / Clear Bar**, **Hide page selector** (off by default).
 - **Bars**: click to edit, double-click to open, **…** for Open, Duplicate, Rename, Switch to Vertical / Horizontal, Export Bar, Delete.
+- **?**: credits, version and a link to this page.
 - **Bar…**: New Bar…, Import Bar…, Export Bar… (the bar selected in the list), Update Bars. **Config…**: Config Import, Config Export, Open Folder.
 
 ### Custom icons
@@ -120,7 +121,7 @@ Developed and tested on **Cavalry 2.x, macOS**. Windows feedback is welcome — 
 ## Releasing (maintainer)
 
 1. Set `CBAR_VERSION` near the top of `C-Bar.js` and rename *Unreleased* in the CHANGELOG to that version.
-2. Commit, then create a GitHub Release whose tag is `v` + that version (e.g. `v0.9.2`). *Update C-Bar* only looks at the latest Release, not at `main`.
+2. Commit, then create a GitHub Release whose tag is `v` + that version (e.g. `v0.9.2`). *Update…* only looks at the latest Release, not at `main`.
 
 ## Contributing
 

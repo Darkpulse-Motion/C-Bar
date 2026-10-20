@@ -4553,7 +4553,7 @@ function openManager() {
     configBtn.onClick = showConfigMenu;
     barButtons.add(barMenuBtn);
     barButtons.addStretch();
-    barButtons.add(configBtn, createUpdateButton());
+    barButtons.add(configBtn, createUpdateButton(), createInfoButton());
 
     var closeBtn = new ui.Button("Close");
     closeBtn.onClick = function () {
@@ -5795,7 +5795,7 @@ function installUpdate(info) {
 // Text button whose label colour can change (ui.Button has no text
 // colour): a framed Container with a centred Label.
 function createUpdateButton() {
-  updateLabel = new ui.Label("Update C-Bar");
+  updateLabel = new ui.Label("Update…");
   updateLabel.setAlignment(1);
   try { updateLabel.setTransparentForMouseEvents(true); } catch (e) {}
   try { updateLabel.setTextColor(UPDATE_GREY); } catch (e1) {}
@@ -5814,6 +5814,50 @@ function createUpdateButton() {
   };
   refreshUpdateButton();
   return updateButton;
+}
+
+// "?" (round): credits, version and the GitHub page.
+var CBAR_URL = "https://github.com/" + CBAR_REPO;
+
+function showAbout() {
+  var text = "C-Bar v" + CBAR_VERSION + "\n" +
+    "A customisable toolbar for Cavalry, in the spirit of KBar.\n\n" +
+    "Created by Darkpulse · MIT licence\n" +
+    CBAR_URL + "\n\nOpen the GitHub page?";
+  var open = aboveSettings(function () { return new ui.Modal().showConfirmation("About C-Bar", text); });
+  if (open) {
+    try {
+      if (IS_MAC) {
+        api.runDetachedProcess("/usr/bin/open", [CBAR_URL]);
+      } else {
+        api.runDetachedProcess("explorer", [CBAR_URL]);
+      }
+    } catch (e) {
+      logStatus("C-Bar on GitHub: " + CBAR_URL);
+    }
+  }
+}
+
+function createInfoButton() {
+  var size = 24;
+  var d = new ui.Draw();
+  d.setSize(size, size);
+  try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
+  var ring = new cavalry.Path();
+  ring.addEllipse(size / 2, size / 2, 9, 9);
+  d.addPath(ring.toObject(), { color: "#8a8a8a", stroke: true, strokeWidth: 1.2 });
+  var q = new cavalry.Path();
+  q.addText("?", 12, 0, 0);
+  var bb = q.boundingBox();
+  q.translate(size / 2 - bb.centre.x, size / 2 - bb.centre.y);
+  d.addPath(q.toObject(), { color: "#c8c8c8" });
+  d.setToolTip("About C-Bar: credits, version, GitHub");
+  d.onMouseRelease = function (position, button) {
+    if (button === "left") {
+      showAbout();
+    }
+  };
+  return d;
 }
 
 function showBarActionsMenu() {
