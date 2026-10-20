@@ -1104,7 +1104,9 @@ function isZeroValue(v) {
 }
 
 // True when two attribute values match (numbers, {x,y,z} objects,
-// [x,y] arrays, colour strings). Small float differences are ignored.
+// colour strings). Objects are compared on the components they share:
+// a Position is {x,y,z} while a Value 2 entry is {x,y}. Small float
+// differences are ignored.
 function sameValue(a, b) {
   if (a === null || a === undefined || b === null || b === undefined) {
     return false;
@@ -1116,18 +1118,16 @@ function sameValue(a, b) {
     return String(a).toLowerCase() === String(b).toLowerCase();
   }
   if (typeof a === "object" && typeof b === "object") {
-    var keys = {};
-    var k;
-    for (k in a) { keys[k] = true; }
-    for (k in b) { keys[k] = true; }
-    for (k in keys) {
-      if (typeof a[k] === "number" || typeof b[k] === "number") {
-        if (typeof a[k] !== "number" || typeof b[k] !== "number" || Math.abs(a[k] - b[k]) >= 1e-4) {
+    var shared = 0;
+    for (var k in a) {
+      if (typeof a[k] === "number" && typeof b[k] === "number") {
+        if (Math.abs(a[k] - b[k]) >= 1e-4) {
           return false;
         }
+        shared++;
       }
     }
-    return true;
+    return shared > 0;
   }
   return a == b;
 }
@@ -1157,9 +1157,10 @@ function firstArrayEntryPaths(nodeId) {
   return paths;
 }
 
-// Value / Value2 / Value3: "value". Arrays: their first entry. Every
-// candidate path is set, then read back: a wrong path does not always
-// throw, so only a value that reads back the same counts as copied.
+// Value / Value2 / Value3: "value". Arrays: their
+// first entry, found among the node's attributes (only existing paths
+// are written, so Cavalry logs no "Attribute not found"). The value is
+// read back: only a value that reads back the same counts as copied.
 function seedNodeValue(nodeId, type, value) {
   if (isZeroValue(value)) {
     return false;
@@ -1167,11 +1168,8 @@ function seedNodeValue(nodeId, type, value) {
   var paths = ["value"];
   if (/Array$/.test(type)) {
     paths = firstArrayEntryPaths(nodeId);
-    var usual = ["array.0", "array.0.value", "array.0.color"];
-    for (var u = 0; u < usual.length; u++) {
-      if (paths.indexOf(usual[u]) === -1) {
-        paths.push(usual[u]);
-      }
+    if (!paths.length) {
+      paths = ["array.0"];
     }
   }
   for (var i = 0; i < paths.length; i++) {
