@@ -9,6 +9,9 @@
 - **Add Selected Layer** saves a snapshot of the node: values, expressions, keyframes and the links between its own attributes (e.g. an Oscillator whose Minimum is driven by its Maximum with `value*-1`). Links to other layers are not kept. Favourites saved before keep working with their settings.
 - Settings: *New Bar*, *Import Bar*, *Export Bar* and *Update Bars* are grouped in one **Bar…** button (Update Bars below a separator).
 
+### Added
+- **Update C-Bar** button in Settings, next to *Config…*: it checks the latest GitHub Release, turns green when a newer version exists, and installs it after a confirmation showing the current and new version numbers. The previous `C-Bar.js` is kept in `C-Bar_assets/backup/` and the other bars are regenerated. The script now carries its version (`CBAR_VERSION`).
+
 ## v0.9.1 — 2026-10-20 (beta, private test)
 
 ### Added

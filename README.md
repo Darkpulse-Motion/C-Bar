@@ -32,7 +32,9 @@ Other bars are created from the Settings panel (⚙). Each one gets its own `C-B
 
 ### Updating
 
-Replace `C-Bar.js` only. The next time any bar opens, the other `C-Bar_<Name>.js` files are regenerated automatically; reopen the bars that were already open.
+**Settings › Update C-Bar** checks the latest release on GitHub: its text turns green when a newer version exists. Click it to see the current and new version numbers and confirm; the previous `C-Bar.js` is kept in `C-Bar_assets/backup/`, the other bars are regenerated, then reopen your bars.
+
+To update by hand, replace `C-Bar.js` only. The next time any bar opens, the other `C-Bar_<Name>.js` files are regenerated automatically; reopen the bars that were already open.
 Your bars, rigs and icons live in `C-Bar_assets/` and are never touched by an update.
 
 ## Using the bar
@@ -113,6 +115,11 @@ C_Bar/
 ## Compatibility
 
 Developed and tested on **Cavalry 2.x, macOS**. Windows feedback is welcome — please open an [issue](../../issues).
+
+## Releasing (maintainer)
+
+1. Set `CBAR_VERSION` near the top of `C-Bar.js` and rename *Unreleased* in the CHANGELOG to that version.
+2. Commit, then create a GitHub Release whose tag is `v` + that version (e.g. `v0.9.2`). *Update C-Bar* only looks at the latest Release, not at `main`.
 
 ## Contributing
 

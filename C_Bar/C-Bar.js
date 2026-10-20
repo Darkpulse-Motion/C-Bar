@@ -43,6 +43,11 @@ if (!SCRIPT_DIR) {
 }
 SCRIPT_DIR = SCRIPT_DIR.replace(/[\/\\]+$/, "");
 
+// Version of this script. A GitHub Release of the same number (tag
+// "v" + CBAR_VERSION) is what Settings > Update C-Bar installs.
+var CBAR_VERSION = "0.9.2";
+var CBAR_REPO = "Darkpulse-Motion/C-Bar";
+
 var MAIN_SCRIPT = SCRIPT_DIR + "/C-Bar.js";
 var ASSETS_DIR = SCRIPT_DIR + "/C-Bar_assets";
 var BARS_DIR = ASSETS_DIR + "/bars";
@@ -4466,7 +4471,7 @@ function openManager() {
     configBtn.onClick = showConfigMenu;
     barButtons.add(barMenuBtn);
     barButtons.addStretch();
-    barButtons.add(configBtn);
+    barButtons.add(configBtn, createUpdateButton());
 
     var closeBtn = new ui.Button("Close");
     closeBtn.onClick = function () {
@@ -4514,6 +4519,7 @@ function openManager() {
   onBarsChanged();
   frontWindow = null; // Settings is now the front window
   managerContainer.show();
+  checkForUpdateSoon();
 }
 
 // ============================================================
@@ -5520,6 +5526,210 @@ function addMenuEntries(targetId, withSpacer) {
 
 // From the bar's "+": every entry. From Settings > Add…: no Spacer
 // (Settings has its own Spacer button).
+// ============================================================
+// Update C-Bar (latest GitHub Release)
+// ============================================================
+// Settings checks the latest Release of the repository once per session
+// (the request blocks Cavalry for a moment, so it runs only there). The
+// "Update C-Bar" button turns green when a newer version exists; it
+// installs that release's C-Bar.js after a confirmation, keeps the
+// previous file in C-Bar_assets/backup/ and regenerates the bar scripts.
+
+var UPDATE_GREEN = "#4ffd7a";
+var UPDATE_GREY = "#6a6a6a";
+var updateInfo = null;   // { status: "uptodate" | "available" | "error", latest, tag, message }
+var updateLabel = null;
+var updateButton = null;
+
+// Compares "1.2.3" style versions: > 0 when a is newer than b.
+function compareVersions(a, b) {
+  var pa = String(a).replace(/^v/i, "").split(/[.\-]/);
+  var pb = String(b).replace(/^v/i, "").split(/[.\-]/);
+  for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+    var x = parseInt(pa[i], 10) || 0;
+    var y = parseInt(pb[i], 10) || 0;
+    if (x !== y) {
+      return x - y;
+    }
+  }
+  return 0;
+}
+
+function githubClient(host) {
+  var client = new api.WebClient(host);
+  try { client.addHeader("User-Agent", "C-Bar/" + CBAR_VERSION); } catch (e) {}
+  return client;
+}
+
+function checkForUpdate(force) {
+  if (updateInfo && !force) {
+    return updateInfo;
+  }
+  var info = { status: "error", latest: null, tag: null, message: "" };
+  try {
+    var client = githubClient("https://api.github.com");
+    try { client.addHeader("Accept", "application/vnd.github+json"); } catch (e0) {}
+    client.get("/repos/" + CBAR_REPO + "/releases/latest");
+    var status = client.status();
+    if (status === 200) {
+      var rel = JSON.parse(client.body());
+      info.tag = String(rel.tag_name || "");
+      info.latest = info.tag.replace(/^v/i, "");
+      if (!info.latest) {
+        info.message = "The latest release has no version number.";
+      } else {
+        info.status = compareVersions(info.latest, CBAR_VERSION) > 0 ? "available" : "uptodate";
+      }
+    } else if (status === 404) {
+      info.message = "No release found (the repository may be private, or has no release yet).";
+    } else {
+      info.message = "GitHub answered " + status + ".";
+    }
+  } catch (e) {
+    info.message = "Could not reach GitHub: " + e;
+  }
+  updateInfo = info;
+  return info;
+}
+
+function refreshUpdateButton() {
+  if (!updateLabel) {
+    return;
+  }
+  var info = updateInfo;
+  var green = info && info.status === "available";
+  try { updateLabel.setTextColor(green ? UPDATE_GREEN : UPDATE_GREY); } catch (e) {}
+  var tip = "C-Bar v" + CBAR_VERSION;
+  if (!info) {
+    tip += "\nChecking GitHub for a newer version…";
+  } else if (info.status === "available") {
+    tip += "\nv" + info.latest + " is available: click to install it";
+  } else if (info.status === "uptodate") {
+    tip += " is up to date";
+  } else {
+    tip += "\n" + info.message + "\nClick to check again";
+  }
+  try { updateButton.setToolTip(tip); } catch (e2) {}
+}
+
+// Checks shortly after Settings opens, so the panel shows first.
+var updateCheckTimer = null;
+function checkForUpdateSoon() {
+  if (updateInfo) {
+    refreshUpdateButton();
+    return;
+  }
+  try {
+    if (!updateCheckTimer) {
+      updateCheckTimer = new api.Timer({
+        onTimeout: function () {
+          updateCheckTimer.stop();
+          checkForUpdate(false);
+          refreshUpdateButton();
+        }
+      });
+      updateCheckTimer.setRepeating(false);
+      updateCheckTimer.setInterval(300);
+    }
+    updateCheckTimer.start();
+  } catch (e) {
+    checkForUpdate(false);
+    refreshUpdateButton();
+  }
+}
+
+function onUpdateClicked() {
+  var info = updateInfo && updateInfo.status !== "error" ? updateInfo : checkForUpdate(true);
+  refreshUpdateButton();
+  if (info.status === "error") {
+    showMessage("Could not check for updates.\n" + info.message);
+    return;
+  }
+  if (info.status === "uptodate") {
+    showMessage("C-Bar is up to date (v" + CBAR_VERSION + ").");
+    return;
+  }
+  var ok = aboveSettings(function () {
+    return new ui.Modal().showConfirmation("Update C-Bar",
+      "Current version: v" + CBAR_VERSION + "\nNew version: v" + info.latest +
+      "\n\nInstall it now? Your bars, rigs and icons are kept.");
+  });
+  if (ok) {
+    installUpdate(info);
+  }
+}
+
+function installUpdate(info) {
+  var client = githubClient("https://raw.githubusercontent.com");
+  var src = "";
+  try {
+    client.get("/" + CBAR_REPO + "/" + info.tag + "/C_Bar/C-Bar.js");
+    if (client.status() !== 200) {
+      showMessage("Download failed (GitHub answered " + client.status() + "). Nothing was changed.");
+      return;
+    }
+    src = String(client.body() || "");
+  } catch (e) {
+    showMessage("Download failed: " + e + "\nNothing was changed.");
+    return;
+  }
+  // The file must be a C-Bar script of the announced version.
+  var m = src.match(/var CBAR_VERSION = "([^"]+)"/);
+  if (!/^var CBAR_ID = "[^"]*";/.test(src) || !m || compareVersions(m[1], info.latest) !== 0) {
+    showMessage("The downloaded file is not C-Bar v" + info.latest + ". Nothing was changed.");
+    return;
+  }
+  var backupDir = ASSETS_DIR + "/backup";
+  ensureFolder(backupDir);
+  try {
+    api.writeToFile(backupDir + "/C-Bar_v" + CBAR_VERSION + ".js", api.readFromFile(MAIN_SCRIPT), true);
+  } catch (e2) {
+    showMessage("Could not back up the current C-Bar.js (" + e2 + "). Nothing was changed.");
+    return;
+  }
+  try {
+    api.writeToFile(MAIN_SCRIPT, src, true);
+  } catch (e3) {
+    showMessage("Could not write C-Bar.js: " + e3);
+    return;
+  }
+  var bars = listBars();
+  for (var i = 0; i < bars.length; i++) {
+    if (bars[i].id !== "default" && bars[i].script) {
+      writeBarScript(bars[i]);
+    }
+  }
+  updateInfo = { status: "uptodate", latest: info.latest, tag: info.tag, message: "" };
+  refreshUpdateButton();
+  logStatus("C-Bar updated to v" + info.latest + " (previous version in C-Bar_assets/backup/).");
+  showMessage("C-Bar updated to v" + info.latest + ".\nClose and reopen your bars to use it.\n" +
+    "The previous version is in C-Bar_assets/backup/.");
+}
+
+// Text button whose label colour can change (ui.Button has no text
+// colour): a framed Container with a centred Label.
+function createUpdateButton() {
+  updateLabel = new ui.Label("Update C-Bar");
+  updateLabel.setAlignment(1);
+  try { updateLabel.setTransparentForMouseEvents(true); } catch (e) {}
+  try { updateLabel.setTextColor(UPDATE_GREY); } catch (e1) {}
+  var lay = new ui.HLayout();
+  lay.setMargins(10, 2, 10, 2);
+  lay.add(updateLabel);
+  updateButton = new ui.Container();
+  updateButton.setLayout(lay);
+  updateButton.setFixedHeight(24);
+  try { updateButton.setBorder("#5a5a5a", 1); } catch (e2) {}
+  try { updateButton.setRadius(4, 4, 4, 4); } catch (e3) {}
+  updateButton.onMouseRelease = function (position, button) {
+    if (button === "left") {
+      onUpdateClicked();
+    }
+  };
+  refreshUpdateButton();
+  return updateButton;
+}
+
 function showBarActionsMenu() {
   ui.clearContextMenu();
   ui.addMenuItem({ name: "New Bar…", onMouseRelease: openNewBarDialog });
@@ -5564,6 +5774,9 @@ ui.onClose = function () {
     }
     if (longPressTimer) {
       longPressTimer.stop();
+    }
+    if (updateCheckTimer) {
+      updateCheckTimer.stop();
     }
   } catch (e) {}
 };
