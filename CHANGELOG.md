@@ -12,6 +12,7 @@
 
 ### Added
 - **Update C-Bar** button in Settings, next to *Config…*: it checks the latest GitHub Release, turns green when a newer version exists, and installs it after a confirmation showing the current and new version numbers. The previous `C-Bar.js` is kept in `C-Bar_assets/backup/` and the other bars are regenerated. The script now carries its version (`CBAR_VERSION`).
+- With a Text Shape selected (and no attribute selected), String, String Array, String Generator, String From Asset and Get Name are linked to its String automatically.
 
 ## v0.9.1 — 2026-10-20 (beta, private test)
 

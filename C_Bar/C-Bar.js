@@ -1093,6 +1093,10 @@ function isValueNode(nodeId) {
   }
 }
 
+// Nodes linked to the String of a selected Text Shape even when that
+// attribute is not selected.
+var TEXT_AUTO_LINK_TYPES = ["string", "stringArray", "stringGenerator", "stringFromAsset", "getLayerName"];
+
 // Text value types (String attributes, the String of a Text Shape).
 var STRING_TYPES = ["string", "richText"];
 
@@ -1617,6 +1621,16 @@ function createNode(shortcut, forcedTarget) {
   if (!nodeType) {
     logStatus("Node type not found for '" + displayName + "'. Similar types:\n" + listSimilarTypes(displayName));
     return;
+  }
+
+  // A Text Shape selected on its own: text nodes go to its String
+  // without selecting that attribute first.
+  if (!attrTarget && fullSelection.length === 1 && TEXT_AUTO_LINK_TYPES.indexOf(nodeType) !== -1) {
+    var selType = "";
+    try { selType = api.getLayerType(fullSelection[0]); } catch (eT) {}
+    if (selType === "textShape") {
+      attrTarget = { layer: fullSelection[0], attr: "text" };
+    }
   }
 
   // Layouts: like Create > Layout > Embed selected in … Layout.
