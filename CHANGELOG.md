@@ -11,6 +11,7 @@
 - Every node inserted on a selected attribute (Oscillator, Noise, Number Range, Blends, Value nodes…) is now named `Layer_Attribute_Node`, with Position and Rotation shortened to `Pos` and `Rot` (e.g. `Rectangle_Pos_Oscillator`). Color Arrays keep `Color Array_Layer`.
 - Page selector: the page shown has a green number (#4ffd7a) instead of a white frame.
 - Edit Layout: the **+** button is a dotted frame with a small + (it adds a spacer), and the **OK** label fits its button.
+- Settings: the title above the shortcuts list (bar name and page) is gone; the page selector stays at the top right.
 
 ### Fixed
 - Settings changes (e.g. *Hide page selector*) no longer come back a few seconds later: each bar file write is stamped, and an older copy of the file put back by a folder sync (pCloud…) is ignored and overwritten with the current version.

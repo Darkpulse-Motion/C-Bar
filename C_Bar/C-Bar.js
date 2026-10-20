@@ -3975,7 +3975,6 @@ function openNewBarDialog() {
 
 var managerContainer = null;
 var managerList = null;
-var managerTitle = null;
 var resetBtn = null;
 var hidePagesCheck = null;
 var updatingPagesCheck = false;
@@ -4089,7 +4088,6 @@ function onBarsChanged() {
   if (editedBarId !== currentBar.id && !readBarFile(editedBarId)) {
     editedBarId = currentBar.id;
   }
-  managerTitle.setText("Shortcuts of bar: " + editedBarName() + " · page " + managerPage);
   resetBtn.setText(editedBarId === "default" ? "Reset" : "Clear Bar");
   updatingPagesCheck = true;
   hidePagesCheck.setValue(getBarHidePages(editedBarId));
@@ -4140,7 +4138,6 @@ function openManager() {
   }
   {
     // --- Shortcuts of the selected bar ---
-    managerTitle = sectionTitle("");
     managerList = new ui.List();
     // Shift / Cmd + click: several shortcuts can be moved, deleted or
     // sent to another page at once.
@@ -4357,7 +4354,6 @@ function openManager() {
     layout.setMargins(10, 10, 10, 10);
     var pageRow = new ui.HLayout();
     pageRow.setSpaceBetween(4);
-    pageRow.add(managerTitle);
     pageRow.addStretch();
     pageRow.add(new ui.Label("Page"));
     managerPageButtons = {};
