@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.9.1 — 2026-10-20 (beta, private test)
 
 ### Added
 - **Organize Layout**: hold the mouse 1.5 s on an empty part of the bar or on a page button, or right-click > *Organize Layout* (first entry of the menu). The shortcuts stop working and can be dragged: the dragged shortcut stays highlighted, the gap where it will go opens with a dotted line, and dropping it on a page button (highlighted under the mouse) moves it to that page. **+** adds a spacer at the end of the page, the green **✓** leaves the mode (a long press only enters it).
