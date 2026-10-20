@@ -416,7 +416,11 @@ function readBarFile(id) {
   return null;
 }
 
+// Every write is stamped (savedAt, ms) so that a window can tell an
+// older copy of its bar file (e.g. put back by a folder sync such as
+// pCloud a few seconds later) from a newer change made elsewhere.
 function writeBarFile(bar) {
+  bar.savedAt = Math.max(Date.now(), (bar.savedAt || 0) + 1);
   try {
     api.writeToFile(barFilePath(bar.id), JSON.stringify(bar, null, 2), true);
     return true;
@@ -492,6 +496,7 @@ var lastBarText = "";          // JSON content as last read / written by this wi
 // window saves, and applied when the bar is reopened.
 var diskOrientation = currentBar.orientation;
 var currentBarDeleted = false; // true once the bar has been deleted from another window
+var lastOwnSave = 0;           // savedAt of this window's last write
 
 // Clean bar (Cavalry toolbar, no tab). Its orientation is chosen when
 // the bar is created and fixed when the window opens.
@@ -522,7 +527,10 @@ function saveShortcuts() {
   currentBar.shortcuts = nodeShortcuts;
   var toSave = JSON.parse(JSON.stringify(currentBar));
   toSave.orientation = diskOrientation;
-  writeBarFile(toSave);
+  if (writeBarFile(toSave)) {
+    lastOwnSave = toSave.savedAt;
+    currentBar.savedAt = toSave.savedAt;
+  }
   lastBarText = readBarText(currentBar.id) || "";
 }
 
@@ -544,6 +552,13 @@ function syncCurrentBarFromDisk() {
   lastBarText = txt;
   try {
     var data = JSON.parse(txt);
+    // Older than what this window saved last: a stale copy (folder sync).
+    // It is ignored and this window's version is written again.
+    if (lastOwnSave && data.savedAt && data.savedAt < lastOwnSave) {
+      logStatus("An older copy of the bar file was found (folder sync?): kept the current version.");
+      saveShortcuts();
+      return false;
+    }
     currentBar.name = data.name || currentBar.name;
     currentBar.hidePages = data.hidePages === true;
     diskOrientation = data.orientation === "vertical" ? "vertical" : "horizontal";
