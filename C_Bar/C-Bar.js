@@ -2959,6 +2959,7 @@ function fillLayout(layout, vertical) {
     fillEditLayout(layout, vertical);
     return;
   }
+  layout.setSpaceBetween(4);
   var shown = visibleShortcuts();
   for (var i = 0; i < shown.length; i++) {
     if (shown[i].kind === "spacer") {
@@ -3009,7 +3010,6 @@ var editCells = [];     // { cell, shortcut } for the page shown, in order
 var drag = null;        // { from, cell, start, moved, target, page }
 
 var EDIT_BAR_COLOR = "#26313d";
-var EDIT_TARGET_COLOR = "#3e6a96";
 
 function startLongPress() {
   if (editMode) {
@@ -3086,27 +3086,106 @@ function globalAlong(cell, position) {
   return g.left + position.x;
 }
 
-function containsAlong(widget, v) {
+// While a shortcut is dragged, the gap where it would go opens and
+// shows a dotted line; the dragged shortcut stays highlighted, and so
+// does the page button under the mouse.
+var EDIT_DRAG_COLOR = "#3e6a96";
+var GAP_IDLE = 4;
+var GAP_OPEN = 16;
+var editGaps = [];      // gap widgets: editGaps[k] is before editCells[k]
+
+function setGapOpen(k, open) {
+  var gap = editGaps[k];
+  if (!gap) {
+    return;
+  }
+  var vertical = isVertical();
+  var len = open ? GAP_OPEN : GAP_IDLE;
+  try {
+    if (vertical) {
+      gap.setSize(26, len);
+    } else {
+      gap.setSize(len, 26);
+    }
+  } catch (e) {}
+  try { gap.clearPaths(); } catch (e2) {}
+  if (open) {
+    // Dotted line across the bar, in the middle of the gap.
+    for (var t = 3; t < 23; t += 4) {
+      var dash = new cavalry.Path();
+      if (vertical) {
+        dash.addRect(t, len / 2 - 0.75, t + 2, len / 2 + 0.75);
+      } else {
+        dash.addRect(len / 2 - 0.75, t, len / 2 + 0.75, t + 2);
+      }
+      gap.addPath(dash.toObject(), { color: "#e6e6e6" });
+    }
+  }
+  try { gap.redraw(); } catch (e3) {}
+}
+
+function createGap(vertical) {
+  var gap = new ui.Draw();
+  if (vertical) {
+    gap.setSize(26, GAP_IDLE);
+  } else {
+    gap.setSize(GAP_IDLE, 26);
+  }
+  try { gap.setBackgroundColor(EDIT_BAR_COLOR); } catch (e) {}
+  try { gap.setTransparentForMouseEvents(true); } catch (e2) {}
+  return gap;
+}
+
+// Start and end of a widget along the bar (screen coordinates).
+function spanAlong(widget) {
   var g = null;
   try { g = widget.geometry(); } catch (e) {}
   if (!g) {
-    return false;
+    return null;
   }
-  return isVertical() ? (v >= g.top && v <= g.bottom) : (v >= g.left && v <= g.right);
+  return isVertical() ? { start: g.top, end: g.bottom } : { start: g.left, end: g.right };
 }
 
-function setCellHighlight(index, on) {
-  if (index === null || index === undefined || !editCells[index]) {
+// Slot (0..N) where the dragged shortcut would be inserted: the number
+// of other shortcuts whose middle is before the mouse.
+function slotAt(v) {
+  var slot = 0;
+  for (var i = 0; i < editCells.length; i++) {
+    if (i === drag.from) {
+      continue;
+    }
+    var sp = spanAlong(editCells[i].cell);
+    if (sp && v > (sp.start + sp.end) / 2) {
+      slot = i + 1;
+    }
+  }
+  return slot;
+}
+
+function setPageDropHover(page) {
+  if (page === drag.page) {
     return;
   }
-  var c = editCells[index].cell;
-  try {
-    if (on) {
-      c.setBackgroundColor(EDIT_TARGET_COLOR);
-    } else {
-      c.setBackgroundColor(EDIT_BAR_COLOR);
-    }
-  } catch (e) {}
+  if (drag.page && pageButtons[drag.page]) {
+    paintPageButton(pageButtons[drag.page], drag.page, false);
+  }
+  if (page && pageButtons[page]) {
+    paintPageButton(pageButtons[page], page, true);
+  }
+  drag.page = page;
+}
+
+function setOpenSlot(slot) {
+  if (slot === drag.slot) {
+    return;
+  }
+  if (drag.slot !== null) {
+    setGapOpen(drag.slot, false);
+  }
+  if (slot !== null) {
+    setGapOpen(slot, true);
+  }
+  drag.slot = slot;
 }
 
 function createEditCell(shortcut, index, vertical) {
@@ -3137,7 +3216,8 @@ function createEditCell(shortcut, index, vertical) {
     if (button !== "left") {
       return;
     }
-    drag = { from: index, cell: cell, start: globalAlong(cell, position), moved: false, target: null, page: null };
+    drag = { from: index, cell: cell, start: globalAlong(cell, position), moved: false, slot: null, page: null };
+    try { cell.setBackgroundColor(EDIT_DRAG_COLOR); } catch (e5) {}
   };
   cell.onMouseMove = function (position) {
     if (!drag || drag.cell !== cell) {
@@ -3151,60 +3231,60 @@ function createEditCell(shortcut, index, vertical) {
       return;
     }
     drag.moved = true;
-    var target = null;
-    for (var i = 0; i < editCells.length; i++) {
-      if (containsAlong(editCells[i].cell, v)) {
-        target = i;
-        break;
-      }
-    }
     var page = null;
     for (var n = 1; n <= PAGE_COUNT; n++) {
-      if (pageButtons[n] && containsAlong(pageButtons[n], v)) {
+      var sp = pageButtons[n] ? spanAlong(pageButtons[n]) : null;
+      if (sp && v >= sp.start && v <= sp.end) {
         page = n;
       }
     }
-    if (target !== drag.target) {
-      setCellHighlight(drag.target, false);
-      if (target !== drag.from) {
-        setCellHighlight(target, true);
-      }
-      drag.target = target;
+    setPageDropHover(page && page !== currentPage ? page : null);
+    var slot = page ? null : slotAt(v);
+    // Its own place (just before or after itself): nothing to open.
+    if (slot === drag.from || slot === drag.from + 1) {
+      slot = null;
     }
-    drag.page = page;
+    setOpenSlot(slot);
   };
   cell.onMouseRelease = function () {
     var d = drag;
     drag = null;
-    if (!d || !d.moved) {
+    if (!d) {
       return;
     }
-    if (d.page && d.page !== currentPage) {
-      moveShortcutToPage(editCells[d.from].shortcut.uid, d.page);
-    } else if (d.target !== null && d.target !== d.from) {
-      moveShortcutOnto(editCells[d.from].shortcut.uid, editCells[d.target].shortcut.uid, d.target > d.from);
+    if (!d.moved) {
+      try { cell.setBackgroundColor(EDIT_BAR_COLOR); } catch (e6) {}
+      return;
+    }
+    var uid = editCells[d.from].shortcut.uid;
+    if (d.page) {
+      moveShortcutToPage(uid, d.page);
+    } else if (d.slot !== null) {
+      moveShortcutToSlot(uid, d.slot);
     } else {
-      setCellHighlight(d.target, false);
+      refillBars();
     }
   };
   return cell;
 }
 
-// Moves a shortcut to the place of another one of the same page
-// (after it when moving forward, before it when moving back).
-function moveShortcutOnto(uid, targetUid, after) {
+// Moves a shortcut to a slot of the page shown: before the shortcut
+// shown at that slot, or after the last one.
+function moveShortcutToSlot(uid, slot) {
+  var before = slot < editCells.length ? editCells[slot].shortcut.uid : null;
+  var last = editCells.length ? editCells[editCells.length - 1].shortcut.uid : null;
   mutateBarShortcuts(currentBar.id, function (l) {
     var from = indexOfUidIn(l, uid);
     if (from === -1) {
       return;
     }
     var moved = l.splice(from, 1)[0];
-    var to = indexOfUidIn(l, targetUid);
-    if (to === -1) {
+    var to = before ? indexOfUidIn(l, before) : indexOfUidIn(l, last) + 1;
+    if (to < 0) {
       l.splice(from, 0, moved);
       return;
     }
-    l.splice(after ? to + 1 : to, 0, moved);
+    l.splice(to, 0, moved);
   });
 }
 
@@ -3224,15 +3304,24 @@ function moveShortcutToPage(uid, page) {
 
 function fillEditLayout(layout, vertical) {
   editCells = [];
+  editGaps = [];
+  layout.setSpaceBetween(0);
   var shown = visibleShortcuts();
   for (var i = 0; i < shown.length; i++) {
+    var gap = createGap(vertical);
+    editGaps.push(gap);
+    layout.add(centeredCell(vertical, gap));
     var cell = createEditCell(shown[i], i, vertical);
     editCells.push({ cell: cell, shortcut: shown[i] });
     layout.add(centeredCell(vertical, cell));
   }
+  var lastGap = createGap(vertical);
+  editGaps.push(lastGap);
+  layout.add(centeredCell(vertical, lastGap));
   layout.add(centeredCell(vertical, createSpacerWidget(vertical)));
   layout.add(centeredCell(vertical, createUtilityButton(
     "addIcon.png", "+", "Add a spacer at the end of this page", function () { addSpacer(currentBar.id); })));
+  layout.addSpacing(4);
   var done = new ui.Button("OK");
   done.setSize(24, 24);
   done.setToolTip("Done: leave Edit Layout");
@@ -3242,6 +3331,7 @@ function fillEditLayout(layout, vertical) {
   // The page selector stays visible while editing (drop targets).
   layout.add(centeredCell(vertical, createSeparator(vertical)));
   for (var n = 1; n <= PAGE_COUNT; n++) {
+    layout.addSpacing(4);
     layout.add(centeredCell(vertical, createPageButton(n)));
   }
 }
