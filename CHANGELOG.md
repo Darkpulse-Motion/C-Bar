@@ -1,8 +1,8 @@
 # Changelog
 
-## v1.0.0 — 2026-10-20
+## v0.9.0 — 2026-10-20 (beta)
 
-First public release.
+First public beta.
 
 ### Bars
 - One `C-Bar.js` manages any number of bars (horizontal or vertical), stored as JSON in `C-Bar_assets/bars/`.
