@@ -3203,8 +3203,13 @@ function createEditCell(shortcut, index, vertical) {
   if (shortcut.kind === "spacer") {
     try { cell.setBorder("#8a8a8a", 1, 2, 2); } catch (e4) {}
   }
-  cell.setToolTip((shortcut.label || "Spacer") + "\nDrag to move it · drop on 1 2 3 4 to change its page");
+  cell.setToolTip((shortcut.label || "Spacer") + "\nDrag to move it · drop on 1 2 3 4 to change its page" +
+    "\nRight-click: move, change page, delete");
   cell.onMousePress = function (position, button) {
+    if (button === "right") {
+      showEditCellMenu(shortcut);
+      return;
+    }
     if (button !== "left") {
       return;
     }
@@ -3258,6 +3263,66 @@ function createEditCell(shortcut, index, vertical) {
     }
   };
   return cell;
+}
+
+// Right-click on a shortcut in Edit Layout: move it one step (Up / Down
+// on a vertical bar, Left / Right on a horizontal one), to another page,
+// or delete it.
+function showEditCellMenu(shortcut) {
+  var uid = shortcut.uid;
+  var vertical = isVertical();
+  var shown = visibleShortcuts();
+  var pos = indexOfUidIn(shown, uid);
+  ui.clearContextMenu();
+  ui.addMenuItem({ name: vertical ? "Move Up" : "Move Left", enabled: pos > 0,
+    onMouseRelease: function () { moveShortcutBy(uid, -1); } });
+  ui.addMenuItem({ name: vertical ? "Move Down" : "Move Right", enabled: pos !== -1 && pos < shown.length - 1,
+    onMouseRelease: function () { moveShortcutBy(uid, 1); } });
+  ui.addMenuItem({ name: "" });
+  for (var n = 1; n <= PAGE_COUNT; n++) {
+    (function (page) {
+      ui.addMenuItem({ name: "Move to Page " + page, enabled: page !== currentPage,
+        onMouseRelease: function () { moveShortcutToPage(uid, page); } });
+    })(n);
+  }
+  ui.addMenuItem({ name: "" });
+  ui.addMenuItem({ name: "Delete", onMouseRelease: function () { deleteShortcut(uid); } });
+  ui.showContextMenu();
+  restoreMainMenuSoon();
+}
+
+// Swaps a shortcut with its neighbour on the page shown (step -1 or 1).
+function moveShortcutBy(uid, step) {
+  var shown = visibleShortcuts();
+  var pos = indexOfUidIn(shown, uid);
+  var other = shown[pos + step];
+  if (pos === -1 || !other) {
+    return;
+  }
+  mutateBarShortcuts(currentBar.id, function (l) {
+    var a = indexOfUidIn(l, uid);
+    var b = indexOfUidIn(l, other.uid);
+    if (a === -1 || b === -1) {
+      return;
+    }
+    var tmp = l[a];
+    l[a] = l[b];
+    l[b] = tmp;
+  });
+}
+
+function deleteShortcut(uid) {
+  var label = "";
+  mutateBarShortcuts(currentBar.id, function (l) {
+    var idx = indexOfUidIn(l, uid);
+    if (idx !== -1) {
+      label = l[idx].label || "Spacer";
+      l.splice(idx, 1);
+    }
+  });
+  if (label) {
+    logStatus("Shortcut deleted: " + label);
+  }
 }
 
 // Moves a shortcut to a slot of the page shown: before the shortcut
