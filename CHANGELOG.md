@@ -11,11 +11,12 @@
 ### Changed
 - **Add Selected Layer** saves a snapshot of the node: values, expressions, keyframes and the links between its own attributes (e.g. an Oscillator whose Minimum is driven by its Maximum with `value*-1`). Links to other layers are not kept. Favourites saved before keep working with their settings.
 - Settings: *New Bar*, *Import Bar*, *Export Bar* and *Update Bars* are grouped in one **Bar…** button (Update Bars below a separator).
+- Settings: the update button reads **Update** and is drawn like the other buttons (same height, fill and border).
 
 ### Added
-- **Update…** button in Settings, next to *Config…*: it checks the latest GitHub Release, turns green when a newer version exists, and installs it after a confirmation showing the current and new version numbers. The previous `C-Bar.js` is kept in `C-Bar_assets/backup/` and the other bars are regenerated. The script now carries its version (`CBAR_VERSION`).
+- **Update** button in Settings, next to *Config…*: it checks the latest GitHub Release, turns green when a newer version exists, and installs it after a confirmation showing the current and new version numbers. The previous `C-Bar.js` is kept in `C-Bar_assets/backup/` and the other bars are regenerated. The script now carries its version (`CBAR_VERSION`).
 - With a Text Shape selected (and no attribute selected), String, String Array, String Generator, String From Asset and Get Name are linked to its String automatically.
-- Settings: round **?** button with the credits, the version number and the link to the GitHub page (it can open it). The update button now reads **Update…**.
+- Settings: round **?** button with the credits, the version number and the link to the GitHub page (it can open it). 
 
 ## v0.9.1 — 2026-10-20 (beta, private test)
 

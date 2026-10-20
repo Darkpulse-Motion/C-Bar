@@ -5808,20 +5808,25 @@ function installUpdate(info) {
 }
 
 // Text button whose label colour can change (ui.Button has no text
-// colour): a framed Container with a centred Label.
+// colour): a Container with a centred Label, drawn like Cavalry's own
+// buttons (dark fill, thin darker border, 18 px high).
+var BUTTON_FILL = "#2b2b2b";
+var BUTTON_BORDER = "#1c1c1c";
+
 function createUpdateButton() {
-  updateLabel = new ui.Label("Update…");
+  updateLabel = new ui.Label("Update");
   updateLabel.setAlignment(1);
   try { updateLabel.setTransparentForMouseEvents(true); } catch (e) {}
   try { updateLabel.setTextColor(UPDATE_GREY); } catch (e1) {}
   var lay = new ui.HLayout();
-  lay.setMargins(10, 2, 10, 2);
+  lay.setMargins(8, 0, 8, 0);
   lay.add(updateLabel);
   updateButton = new ui.Container();
   updateButton.setLayout(lay);
-  updateButton.setFixedHeight(24);
-  try { updateButton.setBorder("#5a5a5a", 1); } catch (e2) {}
-  try { updateButton.setRadius(4, 4, 4, 4); } catch (e3) {}
+  updateButton.setFixedHeight(18);
+  try { updateButton.setBackgroundColor(BUTTON_FILL); } catch (e2) {}
+  try { updateButton.setBorder(BUTTON_BORDER, 1); } catch (e3) {}
+  try { updateButton.setRadius(2, 2, 2, 2); } catch (e4) {}
   updateButton.onMouseRelease = function (position, button) {
     if (button === "left") {
       onUpdateClicked();
