@@ -1140,18 +1140,24 @@ function seedStringNode(nodeId, type, value) {
   var textOf = function (v) {
     return typeof v === "string" ? v : (v && typeof v.text === "string" ? v.text : null);
   };
-  for (var j = 0; j < paths.length; j++) {
-    var forms = defAttrType(type, paths[j]) === "richText" ? [{ text: text }, text] : [text, { text: text }];
-    for (var f = 0; f < forms.length; f++) {
-      var o = {};
-      o[paths[j]] = forms[f];
-      try { api.set(nodeId, o); } catch (e) { continue; }
-      var back = null;
-      try { back = api.get(nodeId, paths[j]); } catch (e2) {}
-      if (textOf(back) === text) {
-        return true;
+  var attempt = function (list) {
+    for (var j = 0; j < list.length; j++) {
+      var forms = defAttrType(type, list[j]) === "richText" ? [{ text: text }, text] : [text, { text: text }];
+      for (var f = 0; f < forms.length; f++) {
+        var o = {};
+        o[list[j]] = forms[f];
+        try { api.set(nodeId, o); } catch (e) { continue; }
+        var back = null;
+        try { back = api.get(nodeId, list[j]); } catch (e2) {}
+        if (textOf(back) === text) {
+          return true;
+        }
       }
     }
+    return false;
+  };
+  if (attempt(paths) || (/Array$/.test(type) && retryWithNewEntry(nodeId, attempt))) {
+    return true;
   }
   logStatus("Could not copy the text into " + api.getNiceName(nodeId) +
     (paths.length ? " (tried: " + paths.join(", ") + ")." : ": no text input found."));
@@ -1246,12 +1252,18 @@ function firstArrayEntryPaths(nodeId) {
     out.sort(function (x, y) { return x.length - y.length; });
     return out;
   };
+  // The entries of some arrays (String Array) are not listed by
+  // getAttributes: "array.0" is then written directly.
   var paths = find();
-  if (!paths.length) {
-    try { api.addArrayIndex(nodeId, "array"); } catch (e2) {}
-    paths = find();
-  }
-  return paths;
+  return paths.length ? paths : ["array.0"];
+}
+
+// Arrays created without any entry: one is added, then the copy is
+// tried again (Cavalry normally creates the first entry itself, so an
+// extra one is never added when it exists).
+function retryWithNewEntry(nodeId, attempt) {
+  try { api.addArrayIndex(nodeId, "array"); } catch (e) { return false; }
+  return attempt(firstArrayEntryPaths(nodeId));
 }
 
 // Value / Value2 / Value3: "value". Blends: "firstValue". Arrays: their
@@ -1267,23 +1279,26 @@ function seedNodeValue(nodeId, type, value) {
     paths = ["firstValue"];
   } else if (/Array$/.test(type)) {
     paths = firstArrayEntryPaths(nodeId);
-    if (!paths.length) {
-      paths = ["array.0"];
-    }
   }
-  for (var i = 0; i < paths.length; i++) {
-    try {
-      var o = {};
-      o[paths[i]] = value;
-      api.set(nodeId, o);
-    } catch (e) {
-      continue;
+  var attempt = function (list) {
+    for (var i = 0; i < list.length; i++) {
+      try {
+        var o = {};
+        o[list[i]] = value;
+        api.set(nodeId, o);
+      } catch (e) {
+        continue;
+      }
+      var back = null;
+      try { back = api.get(nodeId, list[i]); } catch (e2) {}
+      if (sameValue(back, value)) {
+        return true;
+      }
     }
-    var back = null;
-    try { back = api.get(nodeId, paths[i]); } catch (e2) {}
-    if (sameValue(back, value)) {
-      return true;
-    }
+    return false;
+  };
+  if (attempt(paths) || (/Array$/.test(type) && retryWithNewEntry(nodeId, attempt))) {
+    return true;
   }
   logStatus("Could not copy the current value into " + api.getNiceName(nodeId) + ".");
   return false;
