@@ -5,7 +5,7 @@
 ### Added
 - **Edit Layout** (first version): hold the mouse 2 s on an empty part of the bar or on a page button, or right-click > *Edit Layout*. The shortcuts stop working and can be dragged: drop one on another to take its place, or on **1 2 3 4** to move it to that page. **+** adds a spacer at the end of the page, **OK** leaves the mode.
 - Edit Layout: holding a shortcut to drag it no longer leaves the mode (a long press only enters it), and dragging on a vertical bar follows the mouse (it went the opposite way, and the shortcut below the pressed one was highlighted). Page buttons still change page while editing.
-- Page selector: no grey square any more, the number is centred, and only the white frame marks the page shown.
+- Page selector: light grey squares at the size and place of the old solo buttons, centred numbers, white frame on the page shown. Squares were drawn at the wrong size because `cavalry.Path.addRect` takes two corners (from, to), not a width and height; the script tiles had the same small offset.
 - Settings changes (e.g. *Hide page selector*) no longer come back a few seconds later: each bar file write is stamped, and an older copy of the file put back by a folder sync (pCloud…) is ignored and overwritten with the current version.
 
 ### Changed

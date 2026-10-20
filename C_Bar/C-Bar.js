@@ -2692,7 +2692,7 @@ function createScriptTile(shortcut) {
   d.setSize(size, size);
   try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
   var bg = new cavalry.Path();
-  bg.addRect(2, 2, size - 4, size - 4);
+  bg.addRect(2, 2, size - 2, size - 2); // addRect(fromX, fromY, toX, toY)
   d.addPath(bg.toObject(), { color: "#5b4a8f" });
   var txt = new cavalry.Path();
   txt.addText(scriptInitials(shortcut.label), 10, 0, 0);
@@ -2862,34 +2862,42 @@ function centeredCell(vertical, widget) {
   return cell;
 }
 
-// Page selector: the page number, centred; the page shown on the bar
-// has a white frame.
-var PAGE_BUTTON_SIZE = 22;
+// Page selector: light grey squares with their number, the size of the
+// old solo buttons; the page shown on the bar has a white frame, and the
+// page under a dragged shortcut (Edit Layout) is highlighted.
+// cavalry.Path.addRect takes (fromX, fromY, toX, toY).
+var PAGE_BUTTON_SIZE = 24;
+var PAGE_BUTTON_COLOR = "#4a4a4a";
+var PAGE_DROP_COLOR = "#3e6a96";
+
+// activePage: the page with the white frame (the bar's page by default;
+// Settings passes its own).
+function paintPageButton(d, n, dropHover, activePage) {
+  var size = PAGE_BUTTON_SIZE;
+  var active = n === (activePage === undefined ? currentPage : activePage);
+  try { d.clearPaths(); } catch (e) {}
+  var sq = new cavalry.Path();
+  sq.addRect(3, 3, size - 3, size - 3);
+  d.addPath(sq.toObject(), { color: dropHover ? PAGE_DROP_COLOR : PAGE_BUTTON_COLOR });
+  var txt = new cavalry.Path();
+  txt.addText(String(n), 11, 0, 0);
+  var bb = txt.boundingBox();
+  txt.translate(size / 2 - bb.centre.x, size / 2 - bb.centre.y);
+  d.addPath(txt.toObject(), { color: active || dropHover ? "#ffffff" : "#c8c8c8" });
+  if (active) {
+    var frame = new cavalry.Path();
+    frame.addRect(1.5, 1.5, size - 1.5, size - 1.5);
+    d.addPath(frame.toObject(), { color: "#e6e6e6", stroke: true, strokeWidth: 1.5 });
+  }
+  try { d.redraw(); } catch (e2) {}
+}
 
 function createPageButton(n) {
-  var active = n === currentPage;
-  var label = new ui.Label(String(n));
-  label.setAlignment(1);
-  try { label.setFontSize(11); } catch (e) {}
-  label.setTextColor(active ? "#ffffff" : "#9a9a9a");
-  try { label.setTransparentForMouseEvents(true); } catch (e2) {}
-  var row = new ui.HLayout();
-  row.setMargins(0, 0, 0, 0);
-  row.addStretch();
-  row.add(label);
-  row.addStretch();
-  var col = new ui.VLayout();
-  col.setMargins(0, 0, 0, 0);
-  col.addStretch();
-  col.add(row);
-  col.addStretch();
-  var d = new ui.Container();
-  d.setLayout(col);
-  d.setFixedWidth(PAGE_BUTTON_SIZE);
-  d.setFixedHeight(PAGE_BUTTON_SIZE);
-  if (active) {
-    try { d.setBorder("#e6e6e6", 1.5); } catch (e3) {}
-  }
+  var size = PAGE_BUTTON_SIZE;
+  var d = new ui.Draw();
+  d.setSize(size, size);
+  try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
+  paintPageButton(d, n, false);
   d.setToolTip("Page " + n + (editMode ? "\nDrop a shortcut here to move it to this page" :
     "\nHold 2 s on the bar: edit its layout"));
   // The page changes on release: changing it on press would rebuild the
