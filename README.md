@@ -50,7 +50,7 @@ With a layer (or an attribute) selected when you click a shortcut:
 
 | Node | Result |
 |---|---|
-| Value, Value 2/3, Value Array…, Oscillator, Number Range… with an **attribute** selected | Output connected to the attribute, node parented to the layer, named `Layer_Attribute_Node`. The current value of the attribute is copied into the node, so nothing jumps. |
+| Value, Value 2/3, Value Array…, Oscillator, Number Range… with an **attribute** selected | Output connected to the attribute, node parented to the layer, named `Layer_Attribute_Node` (Position → `Pos`, Rotation → `Rot`), e.g. `Rectangle_Pos_Oscillator`. Value nodes and Blends (into *First*) get the current value of the attribute, so nothing jumps. |
 | **Behaviours** (Oscillator, Noise, Align…) and path behaviours (Subdivide, Clean Up, Resample Path…) | Added to the layer's Deformers, parented, named `Layer_Node`. |
 | **Filters** (Alt + click) | Added to the layer's Filters, parented, named `Layer_Filter`. |
 | **Colour utilities** (Color Blend, Contrasting Color…) | Connected to the layer's Fill, parented, named `Layer_Node`. |

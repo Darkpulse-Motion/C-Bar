@@ -1195,6 +1195,19 @@ function seedNodeValue(nodeId, type, value) {
   return false;
 }
 
+// Short names used in node names ("Rectangle_Pos_Oscillator"). Other
+// attributes keep their name as shown in the Attribute Editor.
+var ATTRIBUTE_SHORT_NAMES = {
+  "Position": "Pos",
+  "Rotation": "Rot"
+};
+
+function shortAttributeName(layerId, attr) {
+  var name = attr;
+  try { name = api.getAttributeNiceName(layerId, attr) || attr; } catch (e) {}
+  return ATTRIBUTE_SHORT_NAMES.hasOwnProperty(name) ? ATTRIBUTE_SHORT_NAMES[name] : name;
+}
+
 // Returns true if the node was linked to the attribute.
 function linkToSelectedAttribute(nodeId, target, baseName) {
   if (!target || !isValueNode(nodeId)) {
@@ -1222,19 +1235,14 @@ function linkToSelectedAttribute(nodeId, target, baseName) {
     return false;
   }
   try { api.parent(nodeId, target.layer); } catch (e4) {}
-  // Color Arrays: "Color Array_<LayerName>"; other nodes:
-  // "<LayerName>_<NodeName>".
+  // Every node inserted on an attribute: "<LayerName>_<Attribute>_<NodeName>",
+  // e.g. "Rectangle_Pos_Oscillator" (see ATTRIBUTE_SHORT_NAMES).
+  // Color Arrays keep "Color Array_<LayerName>".
   var nodeTypeId = "";
   try { nodeTypeId = api.getLayerType(nodeId); } catch (e7) {}
-  // Value nodes: "<LayerName>_<Attribute>_<NodeName>", e.g.
-  // "Duplicator_Position_Value 2 Array".
-  var linkedName = layerName + "_" + baseName;
+  var linkedName = layerName + "_" + shortAttributeName(target.layer, target.attr) + "_" + baseName;
   if (nodeTypeId === "colorArray") {
     linkedName = baseName + "_" + layerName;
-  } else if (VALUE_NODE_TYPES.indexOf(nodeTypeId) !== -1) {
-    var attrName = target.attr;
-    try { attrName = api.getAttributeNiceName(target.layer, target.attr) || attrName; } catch (e8) {}
-    linkedName = layerName + "_" + attrName + "_" + baseName;
   }
   if (VALUE_NODE_TYPES.indexOf(nodeTypeId) !== -1 || BLEND_NODE_TYPES.indexOf(nodeTypeId) !== -1 ||
       nodeTypeId === "colorArray") {
