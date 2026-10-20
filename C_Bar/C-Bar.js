@@ -4455,25 +4455,16 @@ function openManager() {
       }
     };
 
-    var newBarBtn = new ui.Button("New Bar…");
-    newBarBtn.onClick = openNewBarDialog;
-    var importBarBtn = new ui.Button("Import Bar…");
-    importBarBtn.setToolTip("Adds a bar exported with \"...\" > Export Bar… (with its rigs, scripts and icons)");
-    importBarBtn.onClick = importBar;
-    var updateBtn = new ui.Button("Update Bars");
-    updateBtn.setToolTip("Regenerates the C-Bar_<Name>.js files from C-Bar.js");
-    updateBtn.onClick = updateAllBarScripts;
+    // "Bar…": New Bar… / Import Bar… / Export Bar… / — / Update Bars.
+    var barMenuBtn = new ui.Button("Bar…");
+    barMenuBtn.setToolTip("New, import or export a bar (the one selected in the list), regenerate the bar scripts");
+    barMenuBtn.onClick = showBarActionsMenu;
     var barButtons = new ui.HLayout();
     // "Config…": Config Import… / Config Export… / Open Folder.
     var configBtn = new ui.Button("Config…");
     configBtn.setToolTip("Import or export the whole configuration (bars and rigs), open the C-Bar folder");
     configBtn.onClick = showConfigMenu;
-    var exportBarBtn = new ui.Button("Export Bar…");
-    exportBarBtn.setToolTip("Exports the bar selected in the list (with its rigs, scripts and icons)");
-    exportBarBtn.onClick = function () {
-      exportBar(editedBarId);
-    };
-    barButtons.add(newBarBtn, importBarBtn, exportBarBtn, updateBtn);
+    barButtons.add(barMenuBtn);
     barButtons.addStretch();
     barButtons.add(configBtn);
 
@@ -5529,6 +5520,17 @@ function addMenuEntries(targetId, withSpacer) {
 
 // From the bar's "+": every entry. From Settings > Add…: no Spacer
 // (Settings has its own Spacer button).
+function showBarActionsMenu() {
+  ui.clearContextMenu();
+  ui.addMenuItem({ name: "New Bar…", onMouseRelease: openNewBarDialog });
+  ui.addMenuItem({ name: "Import Bar…", onMouseRelease: importBar });
+  ui.addMenuItem({ name: "Export Bar…", onMouseRelease: function () { exportBar(editedBarId); } });
+  ui.addMenuItem({ name: "" });
+  ui.addMenuItem({ name: "Update Bars", onMouseRelease: updateAllBarScripts });
+  ui.showContextMenu();
+  restoreMainMenuSoon();
+}
+
 function showConfigMenu() {
   ui.clearContextMenu();
   ui.addMenuItem({ name: "Config Import…", onMouseRelease: function () { openConfigDialog("import"); } });
