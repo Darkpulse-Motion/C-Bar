@@ -2815,6 +2815,7 @@ function createToolbarButton(shortcut) {
   }
   btn.setToolTip(tip);
   btn.onClick = function () {
+    cancelLongPress();
     var alt = false;
     try { alt = api.isAltHeld(); } catch (e) {}
     var shift = false;
@@ -2852,6 +2853,7 @@ function createUtilityButton(iconName, fallbackText, tooltip, onClick) {
   }
   btn.setToolTip(tooltip);
   btn.onClick = function () {
+    cancelLongPress();
     onClick();
   };
   return btn;
@@ -2964,20 +2966,21 @@ function fillLayout(layout, vertical) {
     return;
   }
   layout.setSpaceBetween(4);
+  barItemWidgets = [];
   var shown = visibleShortcuts();
   for (var i = 0; i < shown.length; i++) {
     if (shown[i].kind === "spacer") {
       layout.add(centeredCell(vertical, createSpacerWidget(vertical)));
     } else {
-      layout.add(centeredCell(vertical, createToolbarButton(shown[i])));
+      layout.add(centeredCell(vertical, barItem(createToolbarButton(shown[i]))));
     }
   }
   // Built-in gap before "+" (not a shortcut, not listed in Settings).
   layout.add(centeredCell(vertical, createSpacerWidget(vertical)));
-  layout.add(centeredCell(vertical, createUtilityButton(
-    "addIcon.png", "+", "Add a node, a script, the selected layer, an expression, a rig or a spacer", showAddMenu)));
-  layout.add(centeredCell(vertical, createUtilityButton(
-    "settings.png", "⚙", "Settings: shortcuts and bars", openManager)));
+  layout.add(centeredCell(vertical, barItem(createUtilityButton(
+    "addIcon.png", "+", "Add a node, a script, the selected layer, an expression, a rig or a spacer", showAddMenu))));
+  layout.add(centeredCell(vertical, barItem(createUtilityButton(
+    "settings.png", "⚙", "Settings: shortcuts and bars", openManager))));
   layout.addStretch();
   if (showPageSelector()) {
     layout.add(centeredCell(vertical, createSeparator(vertical)));
@@ -3495,6 +3498,12 @@ function makeBar(vertical) {
   // tooltip shows on the empty parts (buttons have their own).
   container.setToolTip("Hold the mouse 1.5 s here, or right-click > Organize Layout,\nto move, page and delete the shortcuts");
   container.onMousePress = function (position, button) {
+    // A click on a shortcut also reaches the bar (the buttons let the
+    // press through) while its release does not: the long press would
+    // then start on every click. It only starts on an empty part.
+    if (pressIsOnBarItem(container, position)) {
+      return;
+    }
     if (button === "left") {
       startLongPress();
     } else if (button === "right") {
@@ -4867,6 +4876,38 @@ function buildMainMenu() {
   ui.addMenuItem({ name: "" });
   ui.addMenuItem({ name: "Unlock Size (resize)", onMouseRelease: freeSize });
   ui.addMenuItem({ name: "Fit Bar to Buttons", onMouseRelease: fitToButtons });
+}
+
+// Buttons of the bar (shortcuts, +, ⚙): a press on one of them is not
+// a press on an empty part of the bar.
+var barItemWidgets = [];
+
+function barItem(widget) {
+  barItemWidgets.push(widget);
+  return widget;
+}
+
+// Converts a press on the bar container (local, y-up) to screen
+// coordinates and checks it against the buttons. When the geometry is
+// not available, the press counts as being on a button (no long press:
+// the right-click menu and Organize Layout stay available).
+function pressIsOnBarItem(container, position) {
+  var g = null;
+  try { g = container.geometry(); } catch (e) {}
+  if (!g || !position) {
+    return true;
+  }
+  var h = g.height !== undefined ? g.height : (g.bottom - g.top);
+  var x = g.left + position.x;
+  var y = g.top + (h - position.y);
+  for (var i = 0; i < barItemWidgets.length; i++) {
+    var b = null;
+    try { b = barItemWidgets[i].geometry(); } catch (e2) {}
+    if (b && x >= b.left - 2 && x <= b.right + 2 && y >= b.top - 2 && y <= b.bottom + 2) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // A Container or ui.Draw with a mouse callback keeps the right-click for

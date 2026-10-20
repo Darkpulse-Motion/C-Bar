@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Organize Layout no longer starts by itself after a click, an Alt + click or the + menu: the press on a button also reached the bar, but not its release. The long press now only starts on an empty part of the bar, and any button click cancels it.
+
 ## v0.9.1 — 2026-10-20 (beta, private test)
 
 ### Added
