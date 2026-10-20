@@ -4392,15 +4392,16 @@ function openManager() {
     layout.setMargins(10, 10, 10, 10);
     var pageRow = new ui.HLayout();
     pageRow.setSpaceBetween(4);
-    var layoutHint = new ui.Label("Tip: hold the mouse 1.5 s on an empty part of a bar (or right-click > Organize Layout) to arrange it directly on the bar.");
-    try { layoutHint.setTextColor("#9a9a9a"); } catch (eHint) {}
-    pageRow.add(layoutHint);
     pageRow.addStretch();
     pageRow.add(new ui.Label("Page"));
     managerPageButtons = {};
     for (var pg = 1; pg <= PAGE_COUNT; pg++) {
       pageRow.add(createManagerPageButton(pg));
     }
+    // Tip on its own line, across the whole width of the panel.
+    var layoutHint = new ui.Label("Tip: hold the mouse 1.5 s on an empty part of a bar (or right-click > Organize Layout) to arrange it directly on the bar.");
+    try { layoutHint.setTextColor("#9a9a9a"); } catch (eHint) {}
+    layout.add(layoutHint);
     layout.add(pageRow);
     layout.add(new ui.Label("Drag to reorder, double-click to rename, \"...\" to move to another page."));
     layout.add(managerList);
