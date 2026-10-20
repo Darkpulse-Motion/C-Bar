@@ -1082,10 +1082,63 @@ function isValueNode(nodeId) {
       return true;
     }
     // Colour utilities that are neither (e.g. Contrasting Color).
-    return isColorNode(nodeId);
+    if (isColorNode(nodeId)) {
+      return true;
+    }
+    // String nodes (String, String Generator, Sub-String…): atomic
+    // nodes whose output is text.
+    return isStringNodeType(api.getLayerType(nodeId));
   } catch (e) {
     return false;
   }
+}
+
+// Text value types (String attributes, the String of a Text Shape).
+var STRING_TYPES = ["string", "richText"];
+
+// String family: nodes (not shapes) whose output can be text. Their
+// Alt + click menu only lists the text attributes of the layer.
+function isStringNodeType(type) {
+  if (!type) {
+    return false;
+  }
+  var chain = typeChain(type);
+  if (chain.indexOf("shape") !== -1) {
+    return false;
+  }
+  var out = nodeOutputTypes(type) || [];
+  return out.indexOf("string") !== -1 || out.indexOf("richText") !== -1;
+}
+
+// Copies the text of the attribute into a String node: "string" (String,
+// Sub-String…), the first entry of a String Array. Nodes without such an
+// input (String Generator builds its own text) are left as they are.
+function seedStringNode(nodeId, type, value) {
+  var text = typeof value === "string" ? value :
+    (value && typeof value.text === "string" ? value.text : null);
+  if (!text) {
+    return false;
+  }
+  var paths = [];
+  if (/Array$/.test(type)) {
+    paths = firstArrayEntryPaths(nodeId);
+  } else {
+    var candidates = ["string", "text", "value"];
+    for (var i = 0; i < candidates.length; i++) {
+      if (STRING_TYPES.indexOf(defAttrType(type, candidates[i])) !== -1) {
+        paths.push(candidates[i]);
+      }
+    }
+  }
+  for (var j = 0; j < paths.length; j++) {
+    var o = {};
+    o[paths[j]] = defAttrType(type, paths[j]) === "richText" ? { text: text } : text;
+    try {
+      api.set(nodeId, o);
+      return true;
+    } catch (e) {}
+  }
+  return false;
 }
 
 // Connects the output of a node to an attribute. "id" normally forwards
@@ -1268,7 +1321,9 @@ function linkToSelectedAttribute(nodeId, target, baseName) {
   if (nodeTypeId === "colorArray") {
     linkedName = baseName + "_" + layerName;
   }
-  if (VALUE_NODE_TYPES.indexOf(nodeTypeId) !== -1 || BLEND_NODE_TYPES.indexOf(nodeTypeId) !== -1 ||
+  if (STRING_TYPES.indexOf(targetType) !== -1 && isStringNodeType(nodeTypeId)) {
+    seedStringNode(nodeId, nodeTypeId, currentValue);
+  } else if (VALUE_NODE_TYPES.indexOf(nodeTypeId) !== -1 || BLEND_NODE_TYPES.indexOf(nodeTypeId) !== -1 ||
       nodeTypeId === "colorArray") {
     seedNodeValue(nodeId, nodeTypeId, currentValue);
   }
@@ -5038,8 +5093,10 @@ function canPickAttribute(shortcut) {
   return cat !== "shape" && cat !== "effect";
 }
 
-var PICKABLE_TYPES = ["double", "int", "double2", "int2", "double3", "int3", "color"];
-var SKIPPED_ATTRS = []; // attributes never offered in the Alt + click menu
+var PICKABLE_TYPES = ["double", "int", "double2", "int2", "double3", "int3", "color", "string", "richText"];
+// Attributes never offered in the Alt + click menu (layer bookkeeping
+// strings: name, notes, label colour…).
+var SKIPPED_ATTRS = ["niceName", "userData", "uuid", "notes", "color"];
 
 // 2D / 3D attributes get Cavalry's own "constrain proportions" chain
 // icon; 1D and colour attributes have no icon.
@@ -5456,8 +5513,10 @@ function showAttributeMenu(shortcut) {
   var isExpr = shortcut.kind === "expression";
   var nodeType = isExpr ? null : shortcutNodeType(shortcut);
   // Expressions: any numeric attribute (no colours).
+  // String nodes: only the text attributes (their output could also
+  // drive numbers, but that is not what they are for).
   var outTypes = isExpr ? ["double", "int", "double2", "int2", "double3", "int3"] :
-    (nodeType ? nodeOutputTypes(nodeType) : null);
+    (nodeType ? (isStringNodeType(nodeType) ? STRING_TYPES : nodeOutputTypes(nodeType)) : null);
   var groups = collectPickableAttributes(layerId, outTypes);
   if (!groups.length) {
     logStatus("No attribute of " + api.getNiceName(layerId) + " can be driven by " + shortcut.label + ".");

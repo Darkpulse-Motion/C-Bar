@@ -53,6 +53,7 @@ With a layer (or an attribute) selected when you click a shortcut:
 | Node | Result |
 |---|---|
 | Value, Value 2/3, Value Array…, Oscillator, Number Range… with an **attribute** selected | Output connected to the attribute, node parented to the layer, named `Layer_Attribute_Node` (Position → `Pos`, Rotation → `Rot`), e.g. `Rectangle_Pos_Oscillator`. Value nodes and Blends (into *First*) get the current value of the attribute, so nothing jumps. |
+| **String nodes** (String, String Array, Sub-String…) with a text **attribute** selected (e.g. the String of a Text Shape) | Connected, parented, named `Layer_Attribute_Node`; the current text is copied into the node (String Generator builds its own text). Alt + click only lists the layer's text attributes. |
 | **Behaviours** (Oscillator, Noise, Align…) and path behaviours (Subdivide, Clean Up, Resample Path…) | Added to the layer's Deformers, parented, named `Layer_Node`. |
 | **Filters** (Alt + click) | Added to the layer's Filters, parented, named `Layer_Filter`. |
 | **Colour utilities** (Color Blend, Contrasting Color…) | Connected to the layer's Fill, parented, named `Layer_Node`. |
