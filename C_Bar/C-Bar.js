@@ -45,7 +45,7 @@ SCRIPT_DIR = SCRIPT_DIR.replace(/[\/\\]+$/, "");
 
 // Version of this script. A GitHub Release of the same number (tag
 // "v" + CBAR_VERSION) is what Settings > Update C-Bar installs.
-var CBAR_VERSION = "0.9.2";
+var CBAR_VERSION = "0.9.3";
 var CBAR_REPO = "Darkpulse-Motion/C-Bar";
 
 var MAIN_SCRIPT = SCRIPT_DIR + "/C-Bar.js";
@@ -3151,12 +3151,15 @@ function createSpacerWidget(vertical) {
 // right (horizontal).
 function fillLayout(layout, vertical) {
   pageButtons = {};
+  // Emptied on every rebuild, Organize Layout included: the widgets of
+  // the previous layout are destroyed, and reading the geometry of a
+  // destroyed widget crashes Cavalry.
+  barItemWidgets = [];
   if (editMode) {
     fillEditLayout(layout, vertical);
     return;
   }
   layout.setSpaceBetween(4);
-  barItemWidgets = [];
   var shown = visibleShortcuts();
   for (var i = 0; i < shown.length; i++) {
     if (shown[i].kind === "spacer") {
@@ -3641,7 +3644,7 @@ function fillEditLayout(layout, vertical) {
     var gap = createGap(vertical);
     editGaps.push(gap);
     layout.add(centeredCell(vertical, gap));
-    var cell = createEditCell(shown[i], i, vertical);
+    var cell = barItem(createEditCell(shown[i], i, vertical));
     editCells.push({ cell: cell, shortcut: shown[i] });
     layout.add(centeredCell(vertical, cell));
   }
@@ -3649,9 +3652,9 @@ function fillEditLayout(layout, vertical) {
   editGaps.push(lastGap);
   layout.add(centeredCell(vertical, lastGap));
   layout.add(centeredCell(vertical, createSpacerWidget(vertical)));
-  layout.add(centeredCell(vertical, createSpacerTile()));
+  layout.add(centeredCell(vertical, barItem(createSpacerTile())));
   layout.addSpacing(4);
-  layout.add(centeredCell(vertical, createDoneTile()));
+  layout.add(centeredCell(vertical, barItem(createDoneTile())));
   layout.addStretch();
   // The page selector stays visible while editing (drop targets).
   layout.add(centeredCell(vertical, createSeparator(vertical)));

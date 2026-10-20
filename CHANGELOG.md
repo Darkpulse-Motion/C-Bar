@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.3 — 2026-10-20 (beta)
+
+### Fixed
+- Cavalry crashed on any click in Organize Layout: the list of bar buttons used to recognise empty parts of the bar still pointed to the buttons of the normal layout, which are destroyed when the mode starts. The list is now rebuilt with the layout.
+
 ## v0.9.2 — 2026-10-20 (beta)
 
 First public release. From this version on, *Settings › Update* installs new releases; coming from v0.9.1, replace `C-Bar.js` by hand once.
