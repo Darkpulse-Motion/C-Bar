@@ -4,6 +4,7 @@
 
 ### Fixed
 - Docked horizontal bars: the horizontal scroll bar now appears when the panel is narrower than the buttons (the scroll view no longer takes the width of its content as its minimum, and the bar follows panel resizes even when Cavalry does not report them).
+- Value Array, Value2 Array, Value3 Array, Color Array linked to an attribute: the current value is now really copied into the first entry. Each possible entry path is written then read back (a wrong path did not always raise an error, so the copy could silently fail); an entry is added if the array is empty.
 
 ## v0.9.0 — 2026-10-20 (beta)
 

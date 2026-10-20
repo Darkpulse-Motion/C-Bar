@@ -1085,21 +1085,90 @@ function isZeroValue(v) {
   return false;
 }
 
-// Value / Value2 / Value3: "value". Arrays: their first entry (pre-made
-// by Cavalry); the entry path differs between array types, so the usual
-// ones are tried.
+// True when two attribute values match (numbers, {x,y,z} objects,
+// [x,y] arrays, colour strings). Small float differences are ignored.
+function sameValue(a, b) {
+  if (a === null || a === undefined || b === null || b === undefined) {
+    return false;
+  }
+  if (typeof a === "number" && typeof b === "number") {
+    return Math.abs(a - b) < 1e-4;
+  }
+  if (typeof a === "string" || typeof b === "string") {
+    return String(a).toLowerCase() === String(b).toLowerCase();
+  }
+  if (typeof a === "object" && typeof b === "object") {
+    var keys = {};
+    var k;
+    for (k in a) { keys[k] = true; }
+    for (k in b) { keys[k] = true; }
+    for (k in keys) {
+      if (typeof a[k] === "number" || typeof b[k] === "number") {
+        if (typeof a[k] !== "number" || typeof b[k] !== "number" || Math.abs(a[k] - b[k]) >= 1e-4) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  return a == b;
+}
+
+// Attribute paths of the first array entry ("array.0", "array.0.xxx"),
+// shortest first. Cavalry creates arrays with one entry; one is added
+// if the array is empty.
+function firstArrayEntryPaths(nodeId) {
+  var find = function () {
+    var out = [];
+    var attrs = [];
+    try { attrs = api.getAttributes(nodeId) || []; } catch (e) {}
+    for (var i = 0; i < attrs.length; i++) {
+      var a = String(attrs[i]);
+      if (a === "array.0" || a.indexOf("array.0.") === 0) {
+        out.push(a);
+      }
+    }
+    out.sort(function (x, y) { return x.length - y.length; });
+    return out;
+  };
+  var paths = find();
+  if (!paths.length) {
+    try { api.addArrayIndex(nodeId, "array"); } catch (e2) {}
+    paths = find();
+  }
+  return paths;
+}
+
+// Value / Value2 / Value3: "value". Arrays: their first entry. Every
+// candidate path is set, then read back: a wrong path does not always
+// throw, so only a value that reads back the same counts as copied.
 function seedNodeValue(nodeId, type, value) {
   if (isZeroValue(value)) {
     return false;
   }
-  var paths = /Array$/.test(type) ? ["array.0", "array.0.value", "array.0.color"] : ["value"];
+  var paths = ["value"];
+  if (/Array$/.test(type)) {
+    paths = firstArrayEntryPaths(nodeId);
+    var usual = ["array.0", "array.0.value", "array.0.color"];
+    for (var u = 0; u < usual.length; u++) {
+      if (paths.indexOf(usual[u]) === -1) {
+        paths.push(usual[u]);
+      }
+    }
+  }
   for (var i = 0; i < paths.length; i++) {
     try {
       var o = {};
       o[paths[i]] = value;
       api.set(nodeId, o);
+    } catch (e) {
+      continue;
+    }
+    var back = null;
+    try { back = api.get(nodeId, paths[i]); } catch (e2) {}
+    if (sameValue(back, value)) {
       return true;
-    } catch (e) {}
+    }
   }
   logStatus("Could not copy the current value into " + api.getNiceName(nodeId) + ".");
   return false;
