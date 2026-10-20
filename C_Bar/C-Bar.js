@@ -363,7 +363,7 @@ var DEFAULT_SHORTCUTS = [
   { iconFile: "colorArray.png",     label: "Color Array",           nodeName: "Color Array" },
   { iconFile: "subBoundingBox.png", label: "Sub-Mesh Bounding Box", nodeName: "Sub-Mesh Bounding Box", useSelectedLayer: true },
   { type: "oscillator",             label: "Oscillator",            nodeName: "Oscillator", useSelectedLayer: true },
-  { kind: "expression",             label: "Value x -1",            expression: "value*-1", category: "expression" }
+  { kind: "expression",             label: "Value x -1",            expression: "value*-1" }
 ];
 
 // Orientation of the Default bar the first time it is created.
@@ -545,10 +545,10 @@ function syncCurrentBarFromDisk() {
   try {
     var data = JSON.parse(txt);
     currentBar.name = data.name || currentBar.name;
-    currentBar.showSolo = data.showSolo !== false;
+    currentBar.hidePages = data.hidePages === true;
     diskOrientation = data.orientation === "vertical" ? "vertical" : "horizontal";
-    if (!showSoloButtons()) {
-      activeCategory = "all";
+    if (!showPageSelector()) {
+      currentPage = 1;
     }
     nodeShortcuts = data.shortcuts || [];
     currentBar.shortcuts = nodeShortcuts;
@@ -564,10 +564,12 @@ function syncCurrentBarFromDisk() {
 function mutateBarShortcuts(id, fn) {
   if (id === currentBar.id) {
     syncCurrentBarFromDisk();
+    var before = uidSet(nodeShortcuts);
     var r = fn(nodeShortcuts);
     if (r) {
       nodeShortcuts = r;
     }
+    stampNewShortcuts(before, nodeShortcuts, currentPage);
     saveShortcuts();
     refillBars();
   } else {
@@ -577,22 +579,24 @@ function mutateBarShortcuts(id, fn) {
       return;
     }
     bar.shortcuts = bar.shortcuts || [];
+    var before2 = uidSet(bar.shortcuts);
     var r2 = fn(bar.shortcuts);
     if (r2) {
       bar.shortcuts = r2;
     }
+    stampNewShortcuts(before2, bar.shortcuts, 1);
     writeBarFile(bar);
   }
   onBarsChanged();
 }
 
-// Sets a simple property (e.g. showSolo) on a bar and saves it.
+// Sets a simple property (e.g. hidePages) on a bar and saves it.
 function setBarProperty(id, key, value) {
   if (id === currentBar.id) {
     syncCurrentBarFromDisk();
     currentBar[key] = value;
-    if (key === "showSolo" && !value) {
-      activeCategory = "all";
+    if (key === "hidePages" && value) {
+      currentPage = 1;
     }
     saveShortcuts();
     refillBars();
@@ -607,12 +611,12 @@ function setBarProperty(id, key, value) {
   onBarsChanged();
 }
 
-function getBarShowSolo(id) {
+function getBarHidePages(id) {
   if (id === currentBar.id) {
-    return showSoloButtons();
+    return !showPageSelector();
   }
   var bar = readBarFile(id);
-  return !bar || bar.showSolo !== false;
+  return !!bar && bar.hidePages === true;
 }
 
 function getBarShortcuts(id) {
@@ -1419,7 +1423,7 @@ function addLayoutShortcut(key, targetId) {
     }
   }
   mutateBarShortcuts(id, function (l) {
-    l.push({ kind: "layout", layout: key, label: def.label, iconFile: def.iconFile, category: "utility", uid: makeUid("layout_" + key) });
+    l.push({ kind: "layout", layout: key, label: def.label, iconFile: def.iconFile, uid: makeUid("layout_" + key) });
   });
   logStatus("Shortcut added: " + def.label);
 }
@@ -1843,7 +1847,7 @@ function addShortcutForType(type, name, targetId) {
   var list = getBarShortcuts(id);
   for (var i = 0; i < list.length; i++) {
     if (list[i].type === type && !list[i].preset && list[i].kind !== "script") {
-      logStatus("'" + name + "' is already in the bar.");
+      logStatus("'" + name + "' is already in the bar (page " + pageOf(list[i]) + ").");
       return;
     }
   }
@@ -1863,7 +1867,7 @@ function addScriptShortcut(script, targetId) {
     }
   }
   mutateBarShortcuts(id, function (l) {
-    l.push({ kind: "script", path: script.path, label: script.name, category: "script", uid: makeUid("script_" + script.name) });
+    l.push({ kind: "script", path: script.path, label: script.name, uid: makeUid("script_" + script.name) });
   });
   logStatus("Script added: " + script.name);
 }
@@ -1998,7 +2002,7 @@ function openExpressionDialog(targetId, editUid, saveByDefault) {
       }
       if (save) {
         mutateBarShortcuts(exprTargetId, function (l) {
-          l.push({ kind: "expression", expression: expr, label: name, category: "expression", uid: makeUid("expr_" + name) });
+          l.push({ kind: "expression", expression: expr, label: name, uid: makeUid("expr_" + name) });
         });
         logStatus("Expression shortcut saved: " + name + " (" + expr + ")");
       }
@@ -2397,7 +2401,7 @@ function openNewRigDialog(targetId) {
         return;
       }
       mutateBarShortcuts(rigTargetId, function (l) {
-        l.push({ kind: "rig", rig: saved.id, rootType: saved.rootType, label: name, description: description, category: "rig", uid: makeUid("rig_" + saved.id) });
+        l.push({ kind: "rig", rig: saved.id, rootType: saved.rootType, label: name, description: description, uid: makeUid("rig_" + saved.id) });
       });
       logStatus("Rig saved: " + name + " (" + rigFilePath(saved.id) + ")");
       rigDialog.close();
@@ -2529,10 +2533,8 @@ function addFavoriteFromSelection(targetId) {
   var type = api.getLayerType(layerId);
   var name = api.getNiceName(layerId);
   var preset = captureLayerPreset(layerId);
-  var category = guessCategory(type, name);
-  try { category = categoryFromSuperTypes(api.getSuperTypes(layerId)); } catch (e) {}
   mutateBarShortcuts(typeof targetId === "string" ? targetId : currentBar.id, function (l) {
-    l.push({ type: type, label: name, preset: preset, category: category, uid: makeUid("fav_" + type) });
+    l.push({ type: type, label: name, preset: preset, uid: makeUid("fav_" + type) });
   });
   logStatus("Favourite added: " + name + " (" + type + ", " + Object.keys(preset.values).length + " settings)");
 }
@@ -2576,49 +2578,58 @@ function createFromFavorite(shortcut, forcedTarget) {
 }
 
 // ============================================================
-// Colour filters (node categories)
+// Pages (1 to 4)
 // ============================================================
+// Every shortcut belongs to one page ("page" in the bar's JSON, 1 when
+// missing). The bar shows one page at a time; it opens on page 1. New
+// shortcuts go to the page shown on the bar.
 
-var CATEGORIES = [
-  { key: "all",      color: "#4a4a4a", label: "Show all", short: "All" },
-  { key: "effect",   color: "#e5484d", label: "Effects (filters)", short: "Effects" },
-  { key: "shape",    color: "#f2c94c", label: "Shapes", short: "Shapes" },
-  { key: "deformer", color: "#46a758", label: "Deformers", short: "Deformers" },
-  { key: "utility",  color: "#3e8ed0", label: "Utilities and behaviours", short: "Utilities" },
-  { key: "script",   color: "#9b7bd8", label: "Scripts", short: "Scripts" },
-  { key: "expression", color: "#f08c2a", label: "Expressions", short: "Expressions" },
-  { key: "rig",      color: "#2fb4a0", label: "Rigs", short: "Rigs" }
-];
+var PAGE_COUNT = 4;
+var currentPage = 1;
 
-var activeCategory = "all";
-
-function categoryColor(key) {
-  for (var i = 0; i < CATEGORIES.length; i++) {
-    if (CATEGORIES[i].key === key) {
-      return CATEGORIES[i].color;
-    }
-  }
-  return "#4a4a4a";
+function pageOf(s) {
+  var p = parseInt(s && s.page, 10);
+  return p >= 1 && p <= PAGE_COUNT ? p : 1;
 }
 
-function categoryShortLabel(key) {
-  for (var i = 0; i < CATEGORIES.length; i++) {
-    if (CATEGORIES[i].key === key) {
-      return CATEGORIES[i].short || CATEGORIES[i].label;
-    }
+function setCurrentPage(p) {
+  if (p === currentPage) {
+    return;
   }
-  return key;
+  currentPage = p;
+  refillBars();
 }
 
-function categoryLabel(key) {
-  for (var i = 0; i < CATEGORIES.length; i++) {
-    if (CATEGORIES[i].key === key) {
-      return CATEGORIES[i].label;
-    }
+function uidSet(list) {
+  var set = {};
+  for (var i = 0; i < (list || []).length; i++) {
+    set[list[i].uid] = true;
   }
-  return key;
+  return set;
 }
 
+// Shortcuts added by a change (uid not there before) and without a page
+// get the given page.
+function stampNewShortcuts(before, list, page) {
+  for (var i = 0; i < (list || []).length; i++) {
+    if (!before[list[i].uid] && !list[i].page) {
+      list[i].page = page;
+    }
+  }
+}
+
+function visibleShortcuts() {
+  var out = [];
+  for (var i = 0; i < nodeShortcuts.length; i++) {
+    if (pageOf(nodeShortcuts[i]) === currentPage) {
+      out.push(nodeShortcuts[i]);
+    }
+  }
+  return out;
+}
+
+// Node family, guessed from the type: Alt + click (attribute picker)
+// is not offered on shapes and filters.
 function categoryFromSuperTypes(superTypes) {
   var s = (superTypes || []).join(" ").toLowerCase();
   if (/filter/.test(s)) { return "effect"; }
@@ -2641,37 +2652,11 @@ function guessCategory(type, displayName) {
   return "utility";
 }
 
-// A category chosen in Settings always wins; otherwise scripts,
-// expressions and rigs get their own category and nodes are guessed.
 function getShortcutCategory(s) {
-  if (s.kind === "spacer") {
-    return "spacer";
-  }
-  if (s.category) {
-    return s.category;
-  }
-  if (s.kind === "expression" || s.kind === "rig" || s.kind === "script") {
+  if (s.kind === "spacer" || s.kind === "expression" || s.kind === "rig" || s.kind === "script") {
     return s.kind;
   }
   return guessCategory(s.type || s.nodeName, s.label);
-}
-
-function setCategoryFilter(key) {
-  activeCategory = key;
-  refillBars();
-}
-
-function visibleShortcuts() {
-  if (activeCategory === "all") {
-    return nodeShortcuts;
-  }
-  var out = [];
-  for (var i = 0; i < nodeShortcuts.length; i++) {
-    if (getShortcutCategory(nodeShortcuts[i]) === activeCategory) {
-      out.push(nodeShortcuts[i]);
-    }
-  }
-  return out;
 }
 
 // ============================================================
@@ -2862,34 +2847,33 @@ function centeredCell(vertical, widget) {
   return cell;
 }
 
-function createCategoryDot(cat) {
-  var size = 24;
+// Page selector: a square with its number; the page shown on the bar
+// has a white frame.
+var PAGE_BUTTON_SIZE = 24;
+
+function createPageButton(n) {
+  var size = PAGE_BUTTON_SIZE;
   var d = new ui.Draw();
   d.setSize(size, size);
   try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
-  if (cat.key === "script" || cat.key === "expression" || cat.key === "rig") {
-    var s = new cavalry.Path();
-    s.addText(cat.key === "script" ? "S" : (cat.key === "expression" ? "E" : "R"), 14, 0, 0);
-    var bb = s.boundingBox();
-    s.translate(size / 2 - bb.centre.x, size / 2 - bb.centre.y);
-    d.addPath(s.toObject(), { color: cat.color });
-  } else {
-    var p = new cavalry.Path();
-    p.addEllipse(size / 2, size / 2, 6, 6);
-    d.addPath(p.toObject(), { color: cat.color });
+  var active = n === currentPage;
+  var sq = new cavalry.Path();
+  sq.addRect(5, 5, size - 10, size - 10);
+  d.addPath(sq.toObject(), { color: active ? "#5a5a5a" : "#3c3c3c" });
+  var txt = new cavalry.Path();
+  txt.addText(String(n), 11, 0, 0);
+  var bb = txt.boundingBox();
+  txt.translate(size / 2 - bb.centre.x, size / 2 - bb.centre.y);
+  d.addPath(txt.toObject(), { color: active ? "#ffffff" : "#a0a0a0" });
+  if (active) {
+    var frame = new cavalry.Path();
+    frame.addRect(2.5, 2.5, size - 5, size - 5);
+    d.addPath(frame.toObject(), { color: "#e6e6e6", stroke: true, strokeWidth: 1.5 });
   }
-  if (activeCategory === cat.key) {
-    var ring = new cavalry.Path();
-    ring.addEllipse(size / 2, size / 2, 9.5, 9.5);
-    d.addPath(ring.toObject(), { color: "#e6e6e6", stroke: true, strokeWidth: 1.5 });
-  }
-  d.setToolTip(cat.key === "all" ? "Show all shortcuts" :
-    (cat.key === "script" ? "Show scripts only" :
-      (cat.key === "expression" ? "Show expressions only" :
-        (cat.key === "rig" ? "Show rigs only" : "Show only: " + cat.label))));
+  d.setToolTip("Page " + n);
   d.onMousePress = function (position, button) {
     if (button === "left") {
-      setCategoryFilter(cat.key);
+      setCurrentPage(n);
     }
   };
   return d;
@@ -2924,9 +2908,9 @@ function createSpacerWidget(vertical) {
   return gap;
 }
 
-// Shortcuts first, followed by "+" and ⚙. The stretch pushes the solo
-// buttons (colour dots, S) to the bottom (vertical) or to the right
-// (horizontal).
+// Shortcuts of the current page, followed by "+" and ⚙. The stretch
+// pushes the page selector (1 2 3 4) to the bottom (vertical) or to the
+// right (horizontal).
 function fillLayout(layout, vertical) {
   var shown = visibleShortcuts();
   for (var i = 0; i < shown.length; i++) {
@@ -2943,21 +2927,21 @@ function fillLayout(layout, vertical) {
   layout.add(centeredCell(vertical, createUtilityButton(
     "settings.png", "⚙", "Settings: shortcuts and bars", openManager)));
   layout.addStretch();
-  if (showSoloButtons()) {
+  if (showPageSelector()) {
     layout.add(centeredCell(vertical, createSeparator(vertical)));
-    for (var c = 0; c < CATEGORIES.length; c++) {
-      layout.add(centeredCell(vertical, createCategoryDot(CATEGORIES[c])));
+    for (var n = 1; n <= PAGE_COUNT; n++) {
+      layout.add(centeredCell(vertical, createPageButton(n)));
     }
   }
 }
 
-// "View solo buttons" (per bar, on by default): the colour dots and S.
-function showSoloButtons() {
-  return currentBar.showSolo !== false;
+// "Hide page selector" (per bar, off by default).
+function showPageSelector() {
+  return currentBar.hidePages !== true;
 }
 
 function getBarItemCount() {
-  return visibleShortcuts().length + 3 + (showSoloButtons() ? 1 + CATEGORIES.length : 0);
+  return visibleShortcuts().length + 3 + (showPageSelector() ? 1 + PAGE_COUNT : 0);
 }
 
 // ============================================================
@@ -3103,9 +3087,9 @@ function barContentLength() {
   }
   len += SPACER_SIZE + 24 + 24; // built-in gap, "+", ⚙
   count += 3;
-  if (showSoloButtons()) {
-    len += 1 + CATEGORIES.length * 24;
-    count += 1 + CATEGORIES.length;
+  if (showPageSelector()) {
+    len += 1 + PAGE_COUNT * PAGE_BUTTON_SIZE;
+    count += 1 + PAGE_COUNT;
   }
   len += (count - 1) * 4; // spacing between items
   if (isVertical()) {
@@ -3489,8 +3473,8 @@ var managerContainer = null;
 var managerList = null;
 var managerTitle = null;
 var resetBtn = null;
-var soloCheck = null;
-var updatingSoloCheck = false;
+var hidePagesCheck = null;
+var updatingPagesCheck = false;
 var barsList = null;
 var editedBarId = currentBar.id;
 
@@ -3498,29 +3482,35 @@ function editedBarName() {
   return barDisplayName(editedBarId);
 }
 
+// Rows grouped by page (page 1 first), each followed by its page.
 function buildManagerModel() {
-  var list = getBarShortcuts(editedBarId);
+  var all = getBarShortcuts(editedBarId);
+  var list = [];
+  for (var p = 1; p <= PAGE_COUNT; p++) {
+    for (var j = 0; j < all.length; j++) {
+      if (pageOf(all[j]) === p) {
+        list.push(all[j]);
+      }
+    }
+  }
   var model = [];
   for (var i = 0; i < list.length; i++) {
     var s = list[i];
+    var pageTag = "   (Page " + pageOf(s) + ")";
     if (s.kind === "spacer") {
-      model.push({ uuid: s.uid, label: "────  " + (s.label || "Spacer") + "  ────",
-                   tooltip: "Empty gap between shortcuts", threeDotsMenu: true });
+      model.push({ uuid: s.uid, label: "────  " + (s.label || "Spacer") + "  ────" + pageTag,
+                   tooltip: "Empty gap between shortcuts · page " + pageOf(s), threeDotsMenu: true });
       continue;
     }
     var row = {
       uuid: s.uid,
-      // List rows are plain text (no grey / italic): the category is
-      // appended after a dash.
-      label: (s.preset ? "♥ " : "") + (s.kind === "expression" ? " π  " : "") + s.label,
-      // Category shown as a colour chip (same colour as its solo button).
-      swatch: categoryColor(getShortcutCategory(s)),
+      label: (s.preset ? "♥ " : "") + (s.kind === "expression" ? " π  " : "") + s.label + pageTag,
       tooltip: (s.preset ? "Favourite — " : "") + (s.kind === "script" ? s.path :
         (s.kind === "expression" ? "Expression: " + s.expression :
           (s.kind === "rig" ? "Rig — " + (s.description || s.label) :
           s.kind === "layout" ? "Shelf action" :
             (s.type || s.nodeName || "")))) +
-        " · " + categoryLabel(getShortcutCategory(s)),
+        " · page " + pageOf(s),
       threeDotsMenu: true
     };
     var icon = s.kind === "expression" ? null :
@@ -3566,9 +3556,9 @@ function onBarsChanged() {
   }
   managerTitle.setText("Shortcuts of bar: " + editedBarName());
   resetBtn.setText(editedBarId === "default" ? "Reset" : "Clear Bar");
-  updatingSoloCheck = true;
-  soloCheck.setValue(getBarShowSolo(editedBarId));
-  updatingSoloCheck = false;
+  updatingPagesCheck = true;
+  hidePagesCheck.setValue(getBarHidePages(editedBarId));
+  updatingPagesCheck = false;
   managerList.setModel(buildManagerModel());
   barsList.setModel(buildBarsModel());
 }
@@ -3618,7 +3608,7 @@ function openManager() {
     managerTitle = sectionTitle("");
     managerList = new ui.List();
     // Shift / Cmd + click: several shortcuts can be moved, deleted or
-    // given a category at once.
+    // sent to another page at once.
     managerList.setSelectionMode("extended");
     managerList.setRowsRenamable(true);
     managerList.setRowsDeletable(true);
@@ -3633,11 +3623,6 @@ function openManager() {
         }
       });
     };
-    // The chip only shows the category: changing its colour is undone
-    // (the category is set with "...").
-    managerList.onSwatchChanged = function () {
-      managerList.setModel(buildManagerModel());
-    };
     managerList.onRowRenamed = function (uid, newName) {
       if (!newName) {
         return;
@@ -3646,7 +3631,7 @@ function openManager() {
         var idx = indexOfUidIn(l, uid);
         if (idx !== -1) {
           l[idx].label = l[idx].kind === "spacer" ?
-            (String(newName).replace(/^[─\s]+|[─\s]+$/g, "") || "Spacer") :
+            (String(newName).replace(/\s*\(Page \d\)\s*$/, "").replace(/^[─\s]+|[─\s]+$/g, "") || "Spacer") :
             String(newName).replace(/^\s*(♥|π)\s*/, "").replace(/\s*\([^()]*\)\s*$/, "");
         }
       });
@@ -3673,17 +3658,15 @@ function openManager() {
       var items = [];
       var l0 = getBarShortcuts(editedBarId);
       var i0 = indexOfUidIn(l0, uid);
-      if (i0 !== -1 && l0[i0].kind === "spacer") {
-        return items; // Rename / Delete are provided by the list itself
-      }
+      // Rename / Delete are provided by the list itself.
       if (i0 !== -1 && l0[i0].kind === "expression") {
         items.push({ label: "Edit Expression…", id: "expr_edit" });
         items.push({ separator: true });
       }
-      // Every category, Scripts / Expressions / Rigs included.
-      for (var i = 0; i < CATEGORIES.length; i++) {
-        if (CATEGORIES[i].key !== "all") {
-          items.push({ label: "Category: " + CATEGORIES[i].label, id: "cat_" + CATEGORIES[i].key });
+      var page0 = i0 !== -1 ? pageOf(l0[i0]) : 0;
+      for (var p = 1; p <= PAGE_COUNT; p++) {
+        if (p !== page0) {
+          items.push({ label: "Move to Page " + p, id: "page_" + p });
         }
       }
       return items;
@@ -3693,7 +3676,7 @@ function openManager() {
         openExpressionDialog(editedBarId, uid);
         return;
       }
-      if (actionId.indexOf("cat_") !== 0) {
+      if (actionId.indexOf("page_") !== 0) {
         return;
       }
       // Applied to every selected row when the clicked row is selected.
@@ -3706,8 +3689,8 @@ function openManager() {
       mutateBarShortcuts(editedBarId, function (l) {
         for (var u = 0; u < uids.length; u++) {
           var idx = indexOfUidIn(l, uids[u]);
-          if (idx !== -1 && l[idx].kind !== "spacer") {
-            l[idx].category = actionId.substr(4);
+          if (idx !== -1) {
+            l[idx].page = parseInt(actionId.substr(5), 10);
           }
         }
       });
@@ -3728,12 +3711,12 @@ function openManager() {
         });
       }
     };
-    soloCheck = new ui.Checkbox(true);
-    soloCheck.onValueChanged = function () {
-      if (updatingSoloCheck) {
+    hidePagesCheck = new ui.Checkbox(false);
+    hidePagesCheck.onValueChanged = function () {
+      if (updatingPagesCheck) {
         return;
       }
-      setBarProperty(editedBarId, "showSolo", soloCheck.getValue());
+      setBarProperty(editedBarId, "hidePages", hidePagesCheck.getValue());
     };
     var spacerBtn = new ui.Button("Spacer");
     spacerBtn.onClick = function () {
@@ -3742,7 +3725,7 @@ function openManager() {
     var shortcutButtons = new ui.HLayout();
     shortcutButtons.add(addBtn, spacerBtn, resetBtn);
     shortcutButtons.addStretch();
-    shortcutButtons.add(soloCheck, new ui.Label("View solo buttons"));
+    shortcutButtons.add(hidePagesCheck, new ui.Label("Hide page selector"));
 
     // --- Bars ---
     barsList = new ui.List();
@@ -3828,7 +3811,7 @@ function openManager() {
     var layout = new ui.VLayout();
     layout.setMargins(10, 10, 10, 10);
     layout.add(managerTitle);
-    layout.add(new ui.Label("Drag to reorder, double-click to rename, \"...\" for the category."));
+    layout.add(new ui.Label("Drag to reorder, double-click to rename, \"...\" to move to another page."));
     layout.add(managerList);
     layout.add(shortcutButtons);
     layout.addSpacing(10);
@@ -4117,8 +4100,8 @@ function importBar() {
   if (!bar) {
     return;
   }
-  if (pack.bar.showSolo === false) {
-    setBarProperty(bar.id, "showSolo", false);
+  if (pack.bar.hidePages === true) {
+    setBarProperty(bar.id, "hidePages", true);
   }
   logStatus("Bar imported as \"" + name + "\" from " + path);
 }

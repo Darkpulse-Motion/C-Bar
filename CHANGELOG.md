@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- **Pages replace categories.** Each bar has 4 pages; the solo buttons (colour dots, S, E, R) are replaced by a page selector **1 2 3 4** with a white frame on the page shown. The bar opens on page 1, and new shortcuts go to the page shown. In Settings, rows are grouped by page and "…" > *Move to Page N* works on several rows at once. *View solo buttons* becomes *Hide page selector* (off by default). Existing shortcuts are on page 1; categories and their colour chips are gone.
 - Every node inserted on a selected attribute (Oscillator, Noise, Number Range, Blends, Value nodes…) is now named `Layer_Attribute_Node`, with Position and Rotation shortened to `Pos` and `Rot` (e.g. `Rectangle_Pos_Oscillator`). Color Arrays keep `Color Array_Layer`.
 
 ### Fixed

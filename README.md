@@ -15,8 +15,8 @@ Build your own bars of shortcuts — nodes, scripts, expressions, rigs and Shelf
 - **Alt + click** on a node: pick the attribute of the selected layer to drive, from a menu organised like the Attribute Editor tabs.
 - **Expressions** as buttons, applied to the selected attribute(s).
 - **Rigs**: save a layer (with its children, connections, expressions, keyframes, labels) and recall it in any scene.
-- **Categories** with solo buttons to filter the bar (Effects, Shapes, Deformers, Utilities, Scripts, Expressions, Rigs).
-- **Settings panel**: reorder (multi-selection), rename, categorise, add spacers, manage bars.
+- **4 pages** per bar: put each shortcut on page 1, 2, 3 or 4 and switch with the page selector at the end of the bar.
+- **Settings panel**: reorder (multi-selection), rename, move to another page, add spacers, manage bars.
 - **Share**: export / import a single bar (with its rigs, scripts and icons) or the whole configuration.
 - **Custom icons**: drop `<Button name>.png` in `C-Bar_assets/icons/`.
 
@@ -42,7 +42,7 @@ Your bars, rigs and icons live in `C-Bar_assets/` and are never touched by an up
 | Shortcut | Click: create / run it. Alt + click: see below. |
 | **+** | Add a node or script, the selected layer (favourite), the selected layer as a rig, an expression, a spacer. |
 | **⚙** | Settings panel. |
-| Colour dots, S, E, R | Solo buttons: show one category only (grey dot = show all). |
+| **1 2 3 4** | Page selector: show that page (the current one has a white frame). The bar opens on page 1. New shortcuts go to the page shown. |
 
 ### Smart behaviours
 
@@ -72,8 +72,8 @@ Select a layer and use **+ › Add Selected Layers as Rig…**. Choose what to i
 
 ### Settings panel (⚙)
 
-- **Shortcuts** of the bar selected below: drag to reorder (Shift / Cmd for several), double-click to rename, **…** to set the category or edit an expression.
-- **Add…**, **Spacer**, **Reset / Clear Bar**, **View solo buttons**.
+- **Shortcuts** of the bar selected below: drag to reorder (Shift / Cmd for several), double-click to rename, **…** to move to another page or edit an expression. Rows are grouped by page.
+- **Add…**, **Spacer**, **Reset / Clear Bar**, **Hide page selector** (off by default).
 - **Bars**: click to edit, double-click to open, **…** for Open, Duplicate, Rename, Switch to Vertical / Horizontal, Export Bar, Delete.
 - **New Bar…**, **Import Bar…**, **Export Bar…**, **Update Bars**, **Config…** (Config Import, Config Export, Open Folder).
 
@@ -118,6 +118,6 @@ Bug reports and ideas are welcome in the **Issues** tab: describe what you did, 
 
 1. Copiez le dossier **`C_Bar`** dans le dossier Scripts de Cavalry (macOS : `~/Library/Application Support/Cavalry/Scripts/`).
 2. Ouvrez **Scripts › C_Bar › C-Bar** : c'est la barre **Default**.
-3. **+** ajoute un nœud, un script, une expression, un rig ou un espace. **⚙** ouvre les réglages (barres, catégories, export / import).
+3. **+** ajoute un nœud, un script, une expression, un rig ou un espace dans la page affichée. **1 2 3 4** change de page. **⚙** ouvre les réglages (barres, pages, export / import).
 4. Avec un calque ou un attribut sélectionné, les nœuds se connectent, se placent en enfant et se renomment tout seuls. **Alt + clic** : choisir l'attribut à piloter.
 5. Mise à jour : remplacez seulement `C-Bar.js` ; les autres barres se mettent à jour à leur prochaine ouverture.
