@@ -2086,6 +2086,7 @@ function saveRig(layerId, name, options, description) {
     rootName: api.getNiceName(layerId),
     description: description || "",
     options: options,
+    scene: sceneFilePath(),
     data: data
   };
   api.writeToFile(rigFilePath(rigId), JSON.stringify(rig), true);
@@ -2165,6 +2166,39 @@ function stripExpressions(data) {
   } catch (e) {
     return data;
   }
+}
+
+function sceneFilePath() {
+  try { return String(api.getSceneFilePath() || ""); } catch (e) { return ""; }
+}
+
+// Inputs of the recalled layers that come from layers outside the rig
+// (the composition itself excepted), as "layer.attr ← source" strings.
+// In another scene such a layer id can point to an unrelated layer.
+function externalInputs(layers, isNew, comp) {
+  var out = [];
+  for (var i = 0; i < layers.length; i++) {
+    var attrs = [];
+    try { attrs = api.getInConnectedAttributes(layers[i]) || []; } catch (e) {}
+    for (var a = 0; a < attrs.length; a++) {
+      var src = "";
+      try { src = String(api.getInConnection(layers[i], attrs[a]) || ""); } catch (e2) {}
+      if (!src) {
+        continue;
+      }
+      var dot = src.indexOf(".");
+      var srcLayer = dot === -1 ? src : src.substr(0, dot);
+      if (isNew[srcLayer] || srcLayer === comp) {
+        continue;
+      }
+      var name = layers[i];
+      try { name = api.getNiceName(layers[i]); } catch (e3) {}
+      var srcName = srcLayer;
+      try { srcName = api.getNiceName(srcLayer); } catch (e4) {}
+      out.push(name + "." + attrs[a] + " \u2190 " + srcName + (dot === -1 ? "" : src.substr(dot)));
+    }
+  }
+  return out;
 }
 
 // Recreates a rig in the active composition. Returns the new root id.
@@ -2275,6 +2309,14 @@ function recallRig(rigId) {
   }
   api.select([root]);
   logStatus("Rig \"" + rig.name + "\" recalled (" + kept.length + " layers).");
+  // Links to layers that are not part of the rig: fine in the scene the
+  // rig was saved from, suspicious in another one.
+  var outside = externalInputs(kept, isNew, comp);
+  if (outside.length) {
+    var otherScene = !rig.scene || rig.scene !== sceneFilePath();
+    logStatus("Rig \"" + rig.name + "\": " + outside.length + " input(s) from layers outside the rig" +
+      (otherScene ? " (saved in another scene: check them)" : "") + ": " + outside.join(", "));
+  }
   return root;
 }
 
@@ -3935,6 +3977,7 @@ function exportBar(id) {
     if (s.kind === "rig" && s.rig && !pack.rigs[s.rig]) {
       var rig = readRig(s.rig);
       if (rig) {
+        delete rig.scene; // a bar is shared: no local file path in it
         pack.rigs[s.rig] = rig;
       }
     }
