@@ -2847,31 +2847,36 @@ function centeredCell(vertical, widget) {
   return cell;
 }
 
-// Page selector: a square with its number; the page shown on the bar
+// Page selector: the page number, centred; the page shown on the bar
 // has a white frame.
-var PAGE_BUTTON_SIZE = 24;
+var PAGE_BUTTON_SIZE = 22;
 
 function createPageButton(n) {
-  var size = PAGE_BUTTON_SIZE;
-  var d = new ui.Draw();
-  d.setSize(size, size);
-  try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
   var active = n === currentPage;
-  var sq = new cavalry.Path();
-  sq.addRect(5, 5, size - 10, size - 10);
-  d.addPath(sq.toObject(), { color: active ? "#5a5a5a" : "#3c3c3c" });
-  var txt = new cavalry.Path();
-  txt.addText(String(n), 11, 0, 0);
-  var bb = txt.boundingBox();
-  txt.translate(size / 2 - bb.centre.x, size / 2 - bb.centre.y);
-  d.addPath(txt.toObject(), { color: active ? "#ffffff" : "#a0a0a0" });
+  var label = new ui.Label(String(n));
+  label.setAlignment(1);
+  try { label.setFontSize(11); } catch (e) {}
+  label.setTextColor(active ? "#ffffff" : "#9a9a9a");
+  try { label.setTransparentForMouseEvents(true); } catch (e2) {}
+  var row = new ui.HLayout();
+  row.setMargins(0, 0, 0, 0);
+  row.addStretch();
+  row.add(label);
+  row.addStretch();
+  var col = new ui.VLayout();
+  col.setMargins(0, 0, 0, 0);
+  col.addStretch();
+  col.add(row);
+  col.addStretch();
+  var d = new ui.Container();
+  d.setLayout(col);
+  d.setFixedWidth(PAGE_BUTTON_SIZE);
+  d.setFixedHeight(PAGE_BUTTON_SIZE);
   if (active) {
-    var frame = new cavalry.Path();
-    frame.addRect(2.5, 2.5, size - 5, size - 5);
-    d.addPath(frame.toObject(), { color: "#e6e6e6", stroke: true, strokeWidth: 1.5 });
+    try { d.setBorder("#e6e6e6", 1.5); } catch (e3) {}
   }
-  d.setToolTip("Page " + n + (editMode ? "\nDrop a shortcut here to move it to this page" : "") +
-    "\nHold 2 s on the bar: edit its layout");
+  d.setToolTip("Page " + n + (editMode ? "\nDrop a shortcut here to move it to this page" :
+    "\nHold 2 s on the bar: edit its layout"));
   // The page changes on release: changing it on press would rebuild the
   // bar under the mouse, and the release (which stops the long press)
   // would be lost.
