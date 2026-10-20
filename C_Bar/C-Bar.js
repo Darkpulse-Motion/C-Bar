@@ -2994,9 +2994,10 @@ function getBarItemCount() {
 // ============================================================
 // Hold the mouse 1.5 s on the bar (an empty part or a page button), or
 // right-click > Edit Layout. The shortcuts stop working and can be
-// dragged: drop one on another to take its place, or on a page button
-// (1 2 3 4) to move it to that page. "+" adds a spacer at the end of
-// the page, "OK" leaves the mode (a long press does too).
+// dragged between two others, or onto a page button (1 2 3 4) to move
+// it to that page; right-click gives Move / Delete. The dotted "+" adds
+// a spacer at the end of the page, the green check mark leaves the mode
+// (a long press only enters it).
 
 var LONG_PRESS_MS = 1500;
 var editMode = false;
@@ -3057,7 +3058,7 @@ function toggleEditMode() {
   // gaps between them are tinted while editing.
   refillBars();
   buildMainMenu();
-  logStatus(editMode ? "Edit Layout: drag the shortcuts, drop on 1 2 3 4 to change page, OK when done." :
+  logStatus(editMode ? "Edit Layout: drag the shortcuts, drop on 1 2 3 4 to change page, \u2713 when done." :
     "Layout saved.");
 }
 
@@ -3400,6 +3401,26 @@ function createSpacerTile() {
   return d;
 }
 
+// Edit Layout "Done": a green check mark (ui.Draw is y-up).
+function createDoneTile() {
+  var size = 24;
+  var d = new ui.Draw();
+  d.setSize(size, size);
+  try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
+  var check = new cavalry.Path();
+  check.moveTo(6.5, 12.5);
+  check.lineTo(10.5, 8.5);
+  check.lineTo(17.5, 16);
+  d.addPath(check.toObject(), { color: PAGE_ACTIVE_COLOR, stroke: true, strokeWidth: 2 });
+  d.setToolTip("Done: leave Edit Layout");
+  d.onMouseRelease = function (position, button) {
+    if (button === "left") {
+      toggleEditMode();
+    }
+  };
+  return d;
+}
+
 function fillEditLayout(layout, vertical) {
   editCells = [];
   editGaps = [];
@@ -3419,12 +3440,7 @@ function fillEditLayout(layout, vertical) {
   layout.add(centeredCell(vertical, createSpacerWidget(vertical)));
   layout.add(centeredCell(vertical, createSpacerTile()));
   layout.addSpacing(4);
-  var done = new ui.Button("OK");
-  done.setSize(24, 24);
-  try { done.setFontSize(9); } catch (eF) {}
-  done.setToolTip("Done: leave Edit Layout");
-  done.onClick = toggleEditMode;
-  layout.add(centeredCell(vertical, done));
+  layout.add(centeredCell(vertical, createDoneTile()));
   layout.addStretch();
   // The page selector stays visible while editing (drop targets).
   layout.add(centeredCell(vertical, createSeparator(vertical)));
