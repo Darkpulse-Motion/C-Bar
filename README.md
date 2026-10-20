@@ -3,8 +3,6 @@
 **A customisable toolbar for [Cavalry](https://cavalry.scenegroup.co), in the spirit of KBar.**
 Build your own bars of shortcuts — nodes, scripts, expressions, rigs and Shelf actions — that create and *wire* layers for you.
 
-> 🇫🇷 Une version française du guide rapide est disponible [en bas de page](#guide-rapide-fr).
-
 ---
 
 ## Features
@@ -130,13 +128,3 @@ Bug reports and ideas are welcome in the **Issues** tab: describe what you did, 
 ## License
 
 [MIT](LICENSE)
-
----
-
-## Guide rapide (FR)
-
-1. Copiez le dossier **`C_Bar`** dans le dossier Scripts de Cavalry (macOS : `~/Library/Application Support/Cavalry/Scripts/`).
-2. Ouvrez **Scripts › C_Bar › C-Bar** : c'est la barre **Default**.
-3. **+** ajoute un nœud, un script, une expression, un rig ou un espace dans la page affichée. **1 2 3 4** change de page. **⚙** ouvre les réglages (barres, pages, export / import).
-4. Avec un calque ou un attribut sélectionné, les nœuds se connectent, se placent en enfant et se renomment tout seuls. **Alt + clic** : choisir l'attribut à piloter.
-5. Mise à jour : remplacez seulement `C-Bar.js` ; les autres barres se mettent à jour à leur prochaine ouverture.
