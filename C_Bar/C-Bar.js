@@ -1134,14 +1134,27 @@ function seedStringNode(nodeId, type, value) {
       }
     }
   }
+  // Each path is written as plain text, then as rich text ({ text }),
+  // and read back: a String Array entry can hold either, and a wrong
+  // form does not always raise an error.
+  var textOf = function (v) {
+    return typeof v === "string" ? v : (v && typeof v.text === "string" ? v.text : null);
+  };
   for (var j = 0; j < paths.length; j++) {
-    var o = {};
-    o[paths[j]] = defAttrType(type, paths[j]) === "richText" ? { text: text } : text;
-    try {
-      api.set(nodeId, o);
-      return true;
-    } catch (e) {}
+    var forms = defAttrType(type, paths[j]) === "richText" ? [{ text: text }, text] : [text, { text: text }];
+    for (var f = 0; f < forms.length; f++) {
+      var o = {};
+      o[paths[j]] = forms[f];
+      try { api.set(nodeId, o); } catch (e) { continue; }
+      var back = null;
+      try { back = api.get(nodeId, paths[j]); } catch (e2) {}
+      if (textOf(back) === text) {
+        return true;
+      }
+    }
   }
+  logStatus("Could not copy the text into " + api.getNiceName(nodeId) +
+    (paths.length ? " (tried: " + paths.join(", ") + ")." : ": no text input found."));
   return false;
 }
 

@@ -5,6 +5,7 @@
 ### Fixed
 - Organize Layout no longer starts by itself after a click, an Alt + click or the + menu: the press on a button also reached the bar, but not its release. The long press now only starts on an empty part of the bar, and any button click cancels it.
 - String nodes (String, String Array, String Generator, Sub-String…): linking one to a text attribute (e.g. the String of a Text Shape) now works and copies the current text into the node (into the first entry of a String Array; String Generator builds its own text). Alt + click on a String node only lists the layer's text attributes.
+- String Array linked to a text attribute: the text now really lands in its first entry (written as plain or rich text and read back). If it still fails, the console lists the paths that were tried.
 
 ### Changed
 - **Add Selected Layer** saves a snapshot of the node: values, expressions, keyframes and the links between its own attributes (e.g. an Oscillator whose Minimum is driven by its Maximum with `value*-1`). Links to other layers are not kept. Favourites saved before keep working with their settings.
