@@ -69,7 +69,7 @@ Hold the mouse **2 seconds** on an empty part of the bar (or on a page button), 
 - **drag** a shortcut and drop it on another one to take its place;
 - drop it on **1 2 3 4** to move it to that page;
 - **+** adds a spacer at the end of the page (spacers show a dotted frame);
-- **OK**, another long press or right-click › *Done Editing Layout* leaves the mode.
+- **OK** or right-click › *Done Editing Layout* leaves the mode (a long press only enters it).
 
 ### Expressions
 

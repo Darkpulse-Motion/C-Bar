@@ -2883,7 +2883,9 @@ function createPageButton(n) {
   d.onMouseRelease = function (position, button) {
     var wasPending = longPressPending();
     cancelLongPress();
-    if (button === "left" && wasPending) {
+    // Normal mode: only when the long press did not fire. Edit Layout:
+    // there is no long press, a click shows the page.
+    if (button === "left" && (wasPending || editMode)) {
       setCurrentPage(n);
     }
   };
@@ -2982,12 +2984,20 @@ var EDIT_BAR_COLOR = "#26313d";
 var EDIT_TARGET_COLOR = "#3e6a96";
 
 function startLongPress() {
+  if (editMode) {
+    return;
+  }
   try {
     if (!longPressTimer) {
       longPressTimer = new api.Timer({
         onTimeout: function () {
           longPressTimer.stop();
-          toggleEditMode();
+          longPressStarted = false;
+          // A long press only enters the mode: while editing, holding a
+          // shortcut to drag it must never leave it.
+          if (!editMode) {
+            toggleEditMode();
+          }
         }
       });
       longPressTimer.setRepeating(false);
@@ -3032,14 +3042,20 @@ function toggleEditMode() {
 }
 
 // Global position of the mouse along the bar, from a position local to
-// the pressed cell.
+// the pressed cell. geometry() is in screen coordinates (y going down)
+// but mouse positions are y-up (origin at the bottom left, like
+// ui.Draw), so y is flipped against the height of the cell.
 function globalAlong(cell, position) {
   var g = null;
   try { g = cell.geometry(); } catch (e) {}
   if (!g) {
     return null;
   }
-  return isVertical() ? g.top + position.y : g.left + position.x;
+  if (isVertical()) {
+    var h = g.height !== undefined ? g.height : (g.bottom - g.top);
+    return g.top + (h - position.y);
+  }
+  return g.left + position.x;
 }
 
 function containsAlong(widget, v) {
