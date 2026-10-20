@@ -958,6 +958,19 @@ function settingsVisible() {
   try { return !managerContainer.isHidden(); } catch (e) { return false; }
 }
 
+// Last secondary window brought to the front (picker, expression, rig,
+// bar or config window). When Settings is shown again after a message or
+// a file dialog, this window goes back in front of it: otherwise the
+// window that asked the question ends up hidden behind Settings.
+var frontWindow = null;
+
+function isShown(container) {
+  if (!container) {
+    return false;
+  }
+  try { return !container.isHidden(); } catch (e) { return false; }
+}
+
 function aboveSettings(fn) {
   var hide = !IS_MAC && settingsVisible();
   if (hide) {
@@ -968,6 +981,10 @@ function aboveSettings(fn) {
   } finally {
     if (hide) {
       try { managerContainer.show(); } catch (e2) {}
+      if (frontWindow && frontWindow !== managerContainer && isShown(frontWindow)) {
+        try { frontWindow.close(); } catch (e3) {}
+        try { frontWindow.show(); } catch (e4) {}
+      }
     }
   }
 }
@@ -978,6 +995,7 @@ function showOnTop(container) {
     try { container.close(); } catch (e) {}
   }
   container.show();
+  frontWindow = container;
 }
 
 function showMessage(text) {
@@ -3299,7 +3317,7 @@ function openPicker(targetId) {
   pickerContainer.setMinimumWidth(320);
   pickerContainer.setMinimumHeight(480);
   pickerContainer.setLayout(layout);
-  pickerContainer.show();
+  showOnTop(pickerContainer);
 }
 
 // ============================================================
@@ -3774,6 +3792,7 @@ function openManager() {
   }
   editedBarId = currentBar.id;
   onBarsChanged();
+  frontWindow = null; // Settings is now the front window
   managerContainer.show();
 }
 
