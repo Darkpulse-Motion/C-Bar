@@ -3513,6 +3513,11 @@ function refillBars() {
   if (!mainBar) {
     return;
   }
+  // A pending long press never survives a rebuild of the bar: the
+  // widget that got the press is gone, so its release would be lost and
+  // Edit Layout would start by itself (e.g. after a click on Hide page
+  // selector in Settings).
+  cancelLongPress();
   mainBar.layout.clear();
   fillLayout(mainBar.layout, mainBar.vertical);
   applyBarSize();
@@ -4376,6 +4381,7 @@ function openManager() {
     managerContainer.setMinimumHeight(600);
     managerContainer.setLayout(layout);
   }
+  cancelLongPress();
   editedBarId = currentBar.id;
   managerPage = currentPage;
   refreshManagerPageButtons();

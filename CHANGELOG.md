@@ -21,6 +21,7 @@
 - Value Blend, Value 2 Blend, Value 3 Blend linked to an attribute: its current value is copied into "First", so nothing jumps.
 - Windows: after a message or a file dialog opened from a secondary window (Add, Expression, Rig, Bar, Config), that window comes back in front of Settings instead of being hidden behind it. The Add window also opens in front of Settings like the other windows.
 - The bar keeps Cavalry's default background after Edit Layout (leaving the mode painted the whole bar with another grey).
+- Clicking *Hide page selector* in Settings no longer switches the bar to Edit Layout: a pending long press is cancelled whenever the bar is rebuilt or Settings opens.
 
 ### Rigs
 - Recalling a rig now lists, in the console, the inputs that come from layers outside the rig. Rigs remember the scene they were saved from, so the message asks you to check those links when the rig is recalled in another scene (where such a layer id can point to an unrelated layer). Exported bars do not include that scene path.
