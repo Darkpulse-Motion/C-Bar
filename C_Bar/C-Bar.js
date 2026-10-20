@@ -2871,7 +2871,7 @@ var PAGE_BUTTON_COLOR = "#4a4a4a";
 var PAGE_DROP_COLOR = "#3e6a96";
 var PAGE_ACTIVE_COLOR = "#4ffd7a"; // number of the page shown
 
-// activePage: the page with the white frame (the bar's page by default;
+// activePage: the page with the green number (the bar's page by default;
 // Settings passes its own).
 function paintPageButton(d, n, dropHover, activePage) {
   var size = PAGE_BUTTON_SIZE;
@@ -3294,6 +3294,47 @@ function moveShortcutToPage(uid, page) {
   logStatus("Moved to page " + page + ".");
 }
 
+// Edit Layout "+": a dotted frame with a small "+", to show that it
+// adds a spacer (an empty gap). addRect takes (fromX, fromY, toX, toY).
+function createSpacerTile() {
+  var size = 24;
+  var d = new ui.Draw();
+  d.setSize(size, size);
+  try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
+  var c = "#c8c8c8";
+  var a = 4;
+  var b = size - 4;
+  for (var t = a; t < b; t += 4) {
+    var e = Math.min(t + 2, b);
+    var top = new cavalry.Path();
+    top.addRect(t, b - 1, e, b);
+    d.addPath(top.toObject(), { color: c });
+    var bottom = new cavalry.Path();
+    bottom.addRect(t, a, e, a + 1);
+    d.addPath(bottom.toObject(), { color: c });
+    var left = new cavalry.Path();
+    left.addRect(a, t, a + 1, e);
+    d.addPath(left.toObject(), { color: c });
+    var right = new cavalry.Path();
+    right.addRect(b - 1, t, b, e);
+    d.addPath(right.toObject(), { color: c });
+  }
+  var m = size / 2;
+  var h = new cavalry.Path();
+  h.addRect(m - 3, m - 0.5, m + 3, m + 0.5);
+  d.addPath(h.toObject(), { color: c });
+  var v = new cavalry.Path();
+  v.addRect(m - 0.5, m - 3, m + 0.5, m + 3);
+  d.addPath(v.toObject(), { color: c });
+  d.setToolTip("Add a spacer at the end of this page");
+  d.onMouseRelease = function (position, button) {
+    if (button === "left") {
+      addSpacer(currentBar.id);
+    }
+  };
+  return d;
+}
+
 function fillEditLayout(layout, vertical) {
   editCells = [];
   editGaps = [];
@@ -3311,11 +3352,11 @@ function fillEditLayout(layout, vertical) {
   editGaps.push(lastGap);
   layout.add(centeredCell(vertical, lastGap));
   layout.add(centeredCell(vertical, createSpacerWidget(vertical)));
-  layout.add(centeredCell(vertical, createUtilityButton(
-    "addIcon.png", "+", "Add a spacer at the end of this page", function () { addSpacer(currentBar.id); })));
+  layout.add(centeredCell(vertical, createSpacerTile()));
   layout.addSpacing(4);
   var done = new ui.Button("OK");
   done.setSize(24, 24);
+  try { done.setFontSize(9); } catch (eF) {}
   done.setToolTip("Done: leave Edit Layout");
   done.onClick = toggleEditMode;
   layout.add(centeredCell(vertical, done));
