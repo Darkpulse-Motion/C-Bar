@@ -6,6 +6,7 @@
 - Docked horizontal bars: the horizontal scroll bar now appears when the panel is narrower than the buttons (the scroll view no longer takes the width of its content as its minimum, and the bar follows panel resizes even when Cavalry does not report them).
 - Value Array, Value2 Array, Value3 Array, Color Array linked to an attribute: the current value is now really copied into the first entry. Each possible entry path is written then read back (a wrong path did not always raise an error, so the copy could silently fail); an entry is added if the array is empty.
 - Value 2 Array / Value 2 linked to a Position that is not 0,0: no more "Attribute not found: array.0.value / array.0.color" errors in the console. A Position has three components and a Value 2 two, so the read-back check failed and other paths were tried; values are now compared on the components they share, and only paths that exist on the node are written.
+- Value Blend, Value 2 Blend, Value 3 Blend linked to an attribute: its current value is copied into "First", so nothing jumps.
 - Windows: after a message or a file dialog opened from a secondary window (Add, Expression, Rig, Bar, Config), that window comes back in front of Settings instead of being hidden behind it. The Add window also opens in front of Settings like the other windows.
 
 ### Rigs

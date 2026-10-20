@@ -1084,6 +1084,9 @@ function connectNodeOutput(nodeId, layerId, attr) {
 // Value nodes: named after the attribute they drive, and seeded with
 // its current value so that linking them does not change the result.
 var VALUE_NODE_TYPES = ["value", "value2", "value3", "valueArray", "value2Array", "value3Array"];
+// Value Blend / Value2 Blend / Value3 Blend: the current value goes into
+// "First" (they keep their usual naming and placement).
+var BLEND_NODE_TYPES = ["valueBlend", "value2Blend", "value3Blend"];
 
 function isZeroValue(v) {
   if (v === null || v === undefined) {
@@ -1157,7 +1160,7 @@ function firstArrayEntryPaths(nodeId) {
   return paths;
 }
 
-// Value / Value2 / Value3: "value". Arrays: their
+// Value / Value2 / Value3: "value". Blends: "firstValue". Arrays: their
 // first entry, found among the node's attributes (only existing paths
 // are written, so Cavalry logs no "Attribute not found"). The value is
 // read back: only a value that reads back the same counts as copied.
@@ -1166,7 +1169,9 @@ function seedNodeValue(nodeId, type, value) {
     return false;
   }
   var paths = ["value"];
-  if (/Array$/.test(type)) {
+  if (BLEND_NODE_TYPES.indexOf(type) !== -1) {
+    paths = ["firstValue"];
+  } else if (/Array$/.test(type)) {
     paths = firstArrayEntryPaths(nodeId);
     if (!paths.length) {
       paths = ["array.0"];
@@ -1231,7 +1236,8 @@ function linkToSelectedAttribute(nodeId, target, baseName) {
     try { attrName = api.getAttributeNiceName(target.layer, target.attr) || attrName; } catch (e8) {}
     linkedName = layerName + "_" + attrName + "_" + baseName;
   }
-  if (VALUE_NODE_TYPES.indexOf(nodeTypeId) !== -1 || nodeTypeId === "colorArray") {
+  if (VALUE_NODE_TYPES.indexOf(nodeTypeId) !== -1 || BLEND_NODE_TYPES.indexOf(nodeTypeId) !== -1 ||
+      nodeTypeId === "colorArray") {
     seedNodeValue(nodeId, nodeTypeId, currentValue);
   }
   try { api.rename(nodeId, linkedName); } catch (e5) {}
