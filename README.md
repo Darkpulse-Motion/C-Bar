@@ -81,7 +81,7 @@ Select a layer and use **+ › Add Selected Layers as Rig…**. Choose what to i
 
 ### Settings panel (⚙)
 
-- **Shortcuts** of the bar selected below: drag to reorder (Shift / Cmd for several), double-click to rename, **…** to move to another page or edit an expression. Rows are grouped by page.
+- **Shortcuts** of the bar selected below: drag to reorder (Shift / Cmd for several), double-click to rename, **…** to move to another page or edit an expression. The **1 2 3 4** selector above the list chooses the page shown.
 - **Add…**, **Spacer**, **Reset / Clear Bar**, **Hide page selector** (off by default).
 - **Bars**: click to edit, double-click to open, **…** for Open, Duplicate, Rename, Switch to Vertical / Horizontal, Export Bar, Delete.
 - **New Bar…**, **Import Bar…**, **Export Bar…**, **Update Bars**, **Config…** (Config Import, Config Export, Open Folder).

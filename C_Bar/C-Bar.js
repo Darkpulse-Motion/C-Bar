@@ -584,7 +584,7 @@ function mutateBarShortcuts(id, fn) {
     if (r) {
       nodeShortcuts = r;
     }
-    stampNewShortcuts(before, nodeShortcuts, currentPage);
+    stampNewShortcuts(before, nodeShortcuts, pageForNewShortcut(id));
     saveShortcuts();
     refillBars();
   } else {
@@ -599,7 +599,7 @@ function mutateBarShortcuts(id, fn) {
     if (r2) {
       bar.shortcuts = r2;
     }
-    stampNewShortcuts(before2, bar.shortcuts, 1);
+    stampNewShortcuts(before2, bar.shortcuts, pageForNewShortcut(id));
     writeBarFile(bar);
   }
   onBarsChanged();
@@ -3883,35 +3883,32 @@ function editedBarName() {
   return barDisplayName(editedBarId);
 }
 
-// Rows grouped by page (page 1 first), each followed by its page.
+// Settings shows the shortcuts of one page at a time (managerPage),
+// chosen with its own 1 2 3 4 selector.
+var managerPage = 1;
+var managerPageButtons = {};
+
 function buildManagerModel() {
   var all = getBarShortcuts(editedBarId);
-  var list = [];
-  for (var p = 1; p <= PAGE_COUNT; p++) {
-    for (var j = 0; j < all.length; j++) {
-      if (pageOf(all[j]) === p) {
-        list.push(all[j]);
-      }
-    }
-  }
   var model = [];
-  for (var i = 0; i < list.length; i++) {
-    var s = list[i];
-    var pageTag = "   (Page " + pageOf(s) + ")";
+  for (var i = 0; i < all.length; i++) {
+    var s = all[i];
+    if (pageOf(s) !== managerPage) {
+      continue;
+    }
     if (s.kind === "spacer") {
-      model.push({ uuid: s.uid, label: "────  " + (s.label || "Spacer") + "  ────" + pageTag,
-                   tooltip: "Empty gap between shortcuts · page " + pageOf(s), threeDotsMenu: true });
+      model.push({ uuid: s.uid, label: "────  " + (s.label || "Spacer") + "  ────",
+                   tooltip: "Empty gap between shortcuts", threeDotsMenu: true });
       continue;
     }
     var row = {
       uuid: s.uid,
-      label: (s.preset ? "♥ " : "") + (s.kind === "expression" ? " π  " : "") + s.label + pageTag,
+      label: (s.preset ? "♥ " : "") + (s.kind === "expression" ? " π  " : "") + s.label,
       tooltip: (s.preset ? "Favourite — " : "") + (s.kind === "script" ? s.path :
         (s.kind === "expression" ? "Expression: " + s.expression :
           (s.kind === "rig" ? "Rig — " + (s.description || s.label) :
           s.kind === "layout" ? "Shelf action" :
-            (s.type || s.nodeName || "")))) +
-        " · page " + pageOf(s),
+            (s.type || s.nodeName || "")))),
       threeDotsMenu: true
     };
     var icon = s.kind === "expression" ? null :
@@ -3922,6 +3919,40 @@ function buildManagerModel() {
     model.push(row);
   }
   return model;
+}
+
+function createManagerPageButton(n) {
+  var d = new ui.Draw();
+  d.setSize(PAGE_BUTTON_SIZE, PAGE_BUTTON_SIZE);
+  try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
+  d.setToolTip("Show the shortcuts of page " + n);
+  d.onMousePress = function (position, button) {
+    if (button === "left" && managerPage !== n) {
+      managerPage = n;
+      refreshManagerPageButtons();
+      onBarsChanged();
+    }
+  };
+  managerPageButtons[n] = d;
+  return d;
+}
+
+function refreshManagerPageButtons() {
+  for (var n = 1; n <= PAGE_COUNT; n++) {
+    if (managerPageButtons[n]) {
+      paintPageButton(managerPageButtons[n], n, false, managerPage);
+    }
+  }
+}
+
+// Page a shortcut added now goes to: the page shown in Settings for the
+// bar edited there, otherwise the page shown on this bar (page 1 for
+// another bar).
+function pageForNewShortcut(id) {
+  if (settingsVisible() && id === editedBarId) {
+    return managerPage;
+  }
+  return id === currentBar.id ? currentPage : 1;
 }
 
 function buildBarsModel() {
@@ -3955,7 +3986,7 @@ function onBarsChanged() {
   if (editedBarId !== currentBar.id && !readBarFile(editedBarId)) {
     editedBarId = currentBar.id;
   }
-  managerTitle.setText("Shortcuts of bar: " + editedBarName());
+  managerTitle.setText("Shortcuts of bar: " + editedBarName() + " · page " + managerPage);
   resetBtn.setText(editedBarId === "default" ? "Reset" : "Clear Bar");
   updatingPagesCheck = true;
   hidePagesCheck.setValue(getBarHidePages(editedBarId));
@@ -4037,22 +4068,32 @@ function openManager() {
         }
       });
     };
-    managerList.onReorder = function (fromIndex, toIndex) {
+    // Only the page shown is reordered: its shortcuts take, in the new
+    // order, the places they had in the bar (other pages are untouched).
+    managerList.onReorder = function () {
       var model = managerList.getModel() || [];
       mutateBarShortcuts(editedBarId, function (l) {
-        var reordered = [];
+        var ordered = [];
         for (var i = 0; i < model.length; i++) {
           var idx = indexOfUidIn(l, model[i].uuid);
           if (idx !== -1) {
-            reordered.push(l[idx]);
+            ordered.push(l[idx]);
           }
         }
-        if (reordered.length === l.length) {
-          return reordered;
+        var slots = [];
+        for (var j = 0; j < l.length; j++) {
+          if (pageOf(l[j]) === managerPage) {
+            slots.push(j);
+          }
         }
-        var moved = l.splice(fromIndex, 1)[0];
-        l.splice(toIndex, 0, moved);
-        return l;
+        if (slots.length !== ordered.length) {
+          return;
+        }
+        var out = l.slice();
+        for (var k = 0; k < slots.length; k++) {
+          out[slots[k]] = ordered[k];
+        }
+        return out;
       });
     };
     managerList.onContextMenuRequest = function (uid) {
@@ -4211,7 +4252,16 @@ function openManager() {
 
     var layout = new ui.VLayout();
     layout.setMargins(10, 10, 10, 10);
-    layout.add(managerTitle);
+    var pageRow = new ui.HLayout();
+    pageRow.setSpaceBetween(4);
+    pageRow.add(managerTitle);
+    pageRow.addStretch();
+    pageRow.add(new ui.Label("Page"));
+    managerPageButtons = {};
+    for (var pg = 1; pg <= PAGE_COUNT; pg++) {
+      pageRow.add(createManagerPageButton(pg));
+    }
+    layout.add(pageRow);
     layout.add(new ui.Label("Drag to reorder, double-click to rename, \"...\" to move to another page."));
     layout.add(managerList);
     layout.add(shortcutButtons);
@@ -4229,6 +4279,8 @@ function openManager() {
     managerContainer.setLayout(layout);
   }
   editedBarId = currentBar.id;
+  managerPage = currentPage;
+  refreshManagerPageButtons();
   onBarsChanged();
   frontWindow = null; // Settings is now the front window
   managerContainer.show();

@@ -7,10 +7,11 @@
 - Edit Layout: holding a shortcut to drag it no longer leaves the mode (a long press only enters it), and dragging on a vertical bar follows the mouse (it went the opposite way, and the shortcut below the pressed one was highlighted). Page buttons still change page while editing.
 - Page selector: light grey squares at the size and place of the old solo buttons, centred numbers, white frame on the page shown. Squares were drawn at the wrong size because `cavalry.Path.addRect` takes two corners (from, to), not a width and height; the script tiles had the same small offset.
 - Edit Layout: while dragging, the shortcut stays highlighted, the gap where it will go opens with a dotted line, and the page button under the mouse lights up. Dropping goes between two shortcuts instead of onto one.
+- Settings: the shortcuts list has its own page selector **1 2 3 4** and shows one page at a time (it opens on the page shown on the bar). Reordering only affects that page, and Add… / Spacer add to it.
 - Settings changes (e.g. *Hide page selector*) no longer come back a few seconds later: each bar file write is stamped, and an older copy of the file put back by a folder sync (pCloud…) is ignored and overwritten with the current version.
 
 ### Changed
-- **Pages replace categories.** Each bar has 4 pages; the solo buttons (colour dots, S, E, R) are replaced by a page selector **1 2 3 4** with a white frame on the page shown. The bar opens on page 1, and new shortcuts go to the page shown. In Settings, rows are grouped by page and "…" > *Move to Page N* works on several rows at once. *View solo buttons* becomes *Hide page selector* (off by default). Existing shortcuts are on page 1; categories and their colour chips are gone.
+- **Pages replace categories.** Each bar has 4 pages; the solo buttons (colour dots, S, E, R) are replaced by a page selector **1 2 3 4** with a white frame on the page shown. The bar opens on page 1, and new shortcuts go to the page shown. In Settings, "…" > *Move to Page N* works on several rows at once. *View solo buttons* becomes *Hide page selector* (off by default). Existing shortcuts are on page 1; categories and their colour chips are gone.
 - Every node inserted on a selected attribute (Oscillator, Noise, Number Range, Blends, Value nodes…) is now named `Layer_Attribute_Node`, with Position and Rotation shortened to `Pos` and `Rot` (e.g. `Rectangle_Pos_Oscillator`). Color Arrays keep `Color Array_Layer`.
 
 ### Fixed
