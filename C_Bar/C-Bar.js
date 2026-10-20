@@ -5839,23 +5839,54 @@ function createUpdateButton() {
 // "?" (round): credits, version and the GitHub page.
 var CBAR_URL = "https://github.com/" + CBAR_REPO;
 
-function showAbout() {
-  var text = "C-Bar v" + CBAR_VERSION + "\n" +
-    "A customisable toolbar for Cavalry, in the spirit of KBar.\n\n" +
-    "Created by Darkpulse · MIT licence\n" +
-    CBAR_URL + "\n\nOpen the GitHub page?";
-  var open = aboveSettings(function () { return new ui.Modal().showConfirmation("About C-Bar", text); });
-  if (open) {
-    try {
-      if (IS_MAC) {
-        api.runDetachedProcess("/usr/bin/open", [CBAR_URL]);
-      } else {
-        api.runDetachedProcess("explorer", [CBAR_URL]);
-      }
-    } catch (e) {
-      logStatus("C-Bar on GitHub: " + CBAR_URL);
+// A small window rather than a Modal: a Modal's buttons are always
+// Cancel / Okay. "Ok" opens the GitHub page.
+var aboutDialog = null;
+
+function openGitHubPage() {
+  try {
+    if (IS_MAC) {
+      api.runDetachedProcess("/usr/bin/open", [CBAR_URL]);
+    } else {
+      api.runDetachedProcess("explorer", [CBAR_URL]);
     }
+  } catch (e) {
+    logStatus("C-Bar on GitHub: " + CBAR_URL);
   }
+}
+
+function showAbout() {
+  if (aboutDialog) {
+    try { aboutDialog.close(); } catch (e0) {}
+    aboutDialog = null;
+  }
+  var title = new ui.Label("C-Bar v" + CBAR_VERSION);
+  try { title.setFontSize(15); } catch (e1) {}
+  var text = new ui.Label("A customisable toolbar for Cavalry, in the spirit of KBar.\n\n" +
+    "Created by Darkpulse · MIT licence\n\nOpen the GitHub page?");
+  var cancel = new ui.Button("Cancel");
+  cancel.onClick = function () {
+    aboutDialog.close();
+  };
+  var ok = new ui.Button("Ok");
+  ok.onClick = function () {
+    aboutDialog.close();
+    openGitHubPage();
+  };
+  var buttons = new ui.HLayout();
+  buttons.addStretch();
+  buttons.add(cancel, ok);
+  var layout = new ui.VLayout();
+  layout.setMargins(16, 14, 16, 12);
+  layout.setSpaceBetween(8);
+  layout.add(title);
+  layout.add(text);
+  layout.addStretch();
+  layout.add(buttons);
+  aboutDialog = new ui.Container();
+  aboutDialog.setMinimumWidth(340);
+  aboutDialog.setLayout(layout);
+  showOnTop(aboutDialog);
 }
 
 function createInfoButton() {
