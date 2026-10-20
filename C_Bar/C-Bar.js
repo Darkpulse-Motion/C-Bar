@@ -2863,12 +2863,13 @@ function centeredCell(vertical, widget) {
 }
 
 // Page selector: light grey squares with their number, the size of the
-// old solo buttons; the page shown on the bar has a white frame, and the
-// page under a dragged shortcut (Edit Layout) is highlighted.
+// old solo buttons; the number of the page shown is green, and the page
+// under a dragged shortcut (Edit Layout) is highlighted.
 // cavalry.Path.addRect takes (fromX, fromY, toX, toY).
 var PAGE_BUTTON_SIZE = 24;
 var PAGE_BUTTON_COLOR = "#4a4a4a";
 var PAGE_DROP_COLOR = "#3e6a96";
+var PAGE_ACTIVE_COLOR = "#4ffd7a"; // number of the page shown
 
 // activePage: the page with the white frame (the bar's page by default;
 // Settings passes its own).
@@ -2883,12 +2884,7 @@ function paintPageButton(d, n, dropHover, activePage) {
   txt.addText(String(n), 11, 0, 0);
   var bb = txt.boundingBox();
   txt.translate(size / 2 - bb.centre.x, size / 2 - bb.centre.y);
-  d.addPath(txt.toObject(), { color: active || dropHover ? "#ffffff" : "#c8c8c8" });
-  if (active) {
-    var frame = new cavalry.Path();
-    frame.addRect(1.5, 1.5, size - 1.5, size - 1.5);
-    d.addPath(frame.toObject(), { color: "#e6e6e6", stroke: true, strokeWidth: 1.5 });
-  }
+  d.addPath(txt.toObject(), { color: active ? PAGE_ACTIVE_COLOR : (dropHover ? "#ffffff" : "#c8c8c8") });
   try { d.redraw(); } catch (e2) {}
 }
 
