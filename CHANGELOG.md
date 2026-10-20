@@ -17,6 +17,7 @@
 - Value 2 Array / Value 2 linked to a Position that is not 0,0: no more "Attribute not found: array.0.value / array.0.color" errors in the console. A Position has three components and a Value 2 two, so the read-back check failed and other paths were tried; values are now compared on the components they share, and only paths that exist on the node are written.
 - Value Blend, Value 2 Blend, Value 3 Blend linked to an attribute: its current value is copied into "First", so nothing jumps.
 - Windows: after a message or a file dialog opened from a secondary window (Add, Expression, Rig, Bar, Config), that window comes back in front of Settings instead of being hidden behind it. The Add window also opens in front of Settings like the other windows.
+- The bar keeps Cavalry's default background after Edit Layout (leaving the mode painted the whole bar with another grey).
 
 ### Rigs
 - Recalling a rig now lists, in the console, the inputs that come from layers outside the rig. Rigs remember the scene they were saved from, so the message asks you to check those links when the rig is recalled in another scene (where such a layer id can point to an unrelated layer). Exported bars do not include that scene path.

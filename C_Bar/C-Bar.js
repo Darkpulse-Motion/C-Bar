@@ -3056,13 +3056,9 @@ function toggleEditMode() {
   cancelLongPress();
   editMode = !editMode;
   drag = null;
-  if (mainBar) {
-    var bg = EDIT_BAR_COLOR;
-    if (!editMode) {
-      try { bg = ui.getThemeColor("Window"); } catch (e) { bg = "#202020"; }
-    }
-    try { mainBar.container.setBackgroundColor(bg); } catch (e2) {}
-  }
+  // The bar itself keeps Cavalry's own background (a colour set on it
+  // could not be removed afterwards): only the shortcut cells and the
+  // gaps between them are tinted while editing.
   refillBars();
   buildMainMenu();
   logStatus(editMode ? "Edit Layout: drag the shortcuts, drop on 1 2 3 4 to change page, OK when done." :
