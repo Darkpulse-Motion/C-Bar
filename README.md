@@ -64,7 +64,7 @@ With a layer (or an attribute) selected when you click a shortcut:
 
 ### Edit Layout
 
-Hold the mouse **2 seconds** on an empty part of the bar (or on a page button), or right-click › **Edit Layout**. The bar turns blue-grey and its shortcuts stop working:
+Hold the mouse **1.5 seconds** on an empty part of the bar (or on a page button), or right-click › **Edit Layout**. The bar turns blue-grey and its shortcuts stop working:
 
 - **drag** a shortcut and drop it on another one to take its place;
 - drop it on **1 2 3 4** to move it to that page;

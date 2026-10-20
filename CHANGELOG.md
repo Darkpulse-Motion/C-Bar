@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Added
-- **Edit Layout**: hold the mouse 2 s on an empty part of the bar or on a page button, or right-click > *Edit Layout*. The shortcuts stop working and can be dragged: the dragged shortcut stays highlighted, the gap where it will go opens with a dotted line, and dropping it on a page button (highlighted under the mouse) moves it to that page. **+** adds a spacer at the end of the page, **OK** leaves the mode (a long press only enters it).
+- **Edit Layout**: hold the mouse 1.5 s on an empty part of the bar or on a page button, or right-click > *Edit Layout*. The shortcuts stop working and can be dragged: the dragged shortcut stays highlighted, the gap where it will go opens with a dotted line, and dropping it on a page button (highlighted under the mouse) moves it to that page. **+** adds a spacer at the end of the page, **OK** leaves the mode (a long press only enters it).
 
 ### Changed
 - **Pages replace categories.** Each bar has 4 pages; the solo buttons (colour dots, S, E, R) are replaced by a page selector **1 2 3 4** (light grey squares, green number on the page shown). The bar opens on page 1, and new shortcuts go to the page shown. Settings has its own page selector above the shortcuts list, which shows one page at a time; reordering only affects that page, and "…" > *Move to Page N* works on several rows at once. *View solo buttons* becomes *Hide page selector* (off by default). Existing shortcuts are on page 1; categories and their colour chips are gone.

@@ -2895,7 +2895,7 @@ function createPageButton(n) {
   try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
   paintPageButton(d, n, false);
   d.setToolTip("Page " + n + (editMode ? "\nDrop a shortcut here to move it to this page" :
-    "\nHold 2 s on the bar: edit its layout"));
+    "\nHold 1.5 s on the bar: edit its layout"));
   // The page changes on release: changing it on press would rebuild the
   // bar under the mouse, and the release (which stops the long press)
   // would be lost.
@@ -2992,13 +2992,13 @@ function getBarItemCount() {
 // ============================================================
 // Edit Layout mode
 // ============================================================
-// Hold the mouse 2 s on the bar (an empty part or a page button), or
+// Hold the mouse 1.5 s on the bar (an empty part or a page button), or
 // right-click > Edit Layout. The shortcuts stop working and can be
 // dragged: drop one on another to take its place, or on a page button
 // (1 2 3 4) to move it to that page. "+" adds a spacer at the end of
 // the page, "OK" leaves the mode (a long press does too).
 
-var LONG_PRESS_MS = 2000;
+var LONG_PRESS_MS = 1500;
 var editMode = false;
 var longPressTimer = null;
 var pageButtons = {};   // page number -> its widget (drop targets)
@@ -3033,7 +3033,7 @@ function startLongPress() {
   } catch (e) {}
 }
 
-// True between the press and the 2 s mark.
+// True between the press and the 1.5 s mark.
 var longPressStarted = false;
 function longPressPending() {
   return longPressStarted;
@@ -3392,7 +3392,7 @@ function makeBar(vertical) {
   fillLayout(layout, vertical);
   var container = new ui.Container();
   container.setLayout(layout);
-  // Hold 2 s on an empty part of the bar: Edit Layout mode.
+  // Hold 1.5 s on an empty part of the bar: Edit Layout mode.
   container.onMousePress = function (position, button) {
     if (button === "left") {
       startLongPress();
