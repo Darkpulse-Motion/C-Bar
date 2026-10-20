@@ -1,0 +1,15 @@
+# Personal configuration — never published
+C_Bar/C-Bar_assets/bars/*
+C_Bar/C-Bar_assets/rigs/*
+C_Bar/C-Bar_assets/icons/*
+C_Bar/C-Bar_assets/scripts/*
+C_Bar/C-Bar_assets/_deleted/
+!C_Bar/C-Bar_assets/*/.gitkeep
+
+# Generated bar scripts (one per user bar)
+C_Bar/C-Bar_*.js
+
+# Backups and system files
+*.cbar
+.DS_Store
+Thumbs.db
