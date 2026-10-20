@@ -2895,7 +2895,7 @@ function createPageButton(n) {
   try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
   paintPageButton(d, n, false);
   d.setToolTip("Page " + n + (editMode ? "\nDrop a shortcut here to move it to this page" :
-    "\nHold 1.5 s on the bar: edit its layout"));
+    "\nHold 1.5 s on the bar: Organize Layout"));
   // The page changes on release: changing it on press would rebuild the
   // bar under the mouse, and the release (which stops the long press)
   // would be lost.
@@ -3058,7 +3058,7 @@ function toggleEditMode() {
   // gaps between them are tinted while editing.
   refillBars();
   buildMainMenu();
-  logStatus(editMode ? "Edit Layout: drag the shortcuts, drop on 1 2 3 4 to change page, \u2713 when done." :
+  logStatus(editMode ? "Organize Layout: drag the shortcuts, drop on 1 2 3 4 to change page, \u2713 when done." :
     "Layout saved.");
 }
 
@@ -3412,7 +3412,7 @@ function createDoneTile() {
   check.lineTo(10.5, 8.5);
   check.lineTo(17.5, 16);
   d.addPath(check.toObject(), { color: PAGE_ACTIVE_COLOR, stroke: true, strokeWidth: 2 });
-  d.setToolTip("Done: leave Edit Layout");
+  d.setToolTip("Done: leave Organize Layout");
   d.onMouseRelease = function (position, button) {
     if (button === "left") {
       toggleEditMode();
@@ -3473,7 +3473,9 @@ function makeBar(vertical) {
   fillLayout(layout, vertical);
   var container = new ui.Container();
   container.setLayout(layout);
-  // Hold 1.5 s on an empty part of the bar: Edit Layout mode.
+  // Hold 1.5 s on an empty part of the bar: Organize Layout mode. The
+  // tooltip shows on the empty parts (buttons have their own).
+  container.setToolTip("Hold the mouse 1.5 s here, or right-click > Organize Layout,\nto move, page and delete the shortcuts");
   container.onMousePress = function (position, button) {
     if (button === "left") {
       startLongPress();
@@ -4370,6 +4372,9 @@ function openManager() {
     layout.setMargins(10, 10, 10, 10);
     var pageRow = new ui.HLayout();
     pageRow.setSpaceBetween(4);
+    var layoutHint = new ui.Label("Tip: hold the mouse 1.5 s on an empty part of a bar (or right-click > Organize Layout) to arrange it directly on the bar.");
+    try { layoutHint.setTextColor("#9a9a9a"); } catch (eHint) {}
+    pageRow.add(layoutHint);
     pageRow.addStretch();
     pageRow.add(new ui.Label("Page"));
     managerPageButtons = {};
@@ -4830,9 +4835,11 @@ function openIconsFolder() {
 // short menu, shows it, then puts the right-click menu back.
 function buildMainMenu() {
   ui.clearContextMenu();
+  // First entry: easy to find with a right-click anywhere on the bar.
+  ui.addMenuItem({ name: editMode ? "Done Organizing Layout" : "Organize Layout", onMouseRelease: toggleEditMode });
+  ui.addMenuItem({ name: "" });
   addMenuEntries(currentBar.id);
   ui.addMenuItem({ name: "Settings…", onMouseRelease: openManager });
-  ui.addMenuItem({ name: editMode ? "Done Editing Layout" : "Edit Layout", onMouseRelease: toggleEditMode });
   ui.addMenuItem({ name: "" });
   ui.addMenuItem({ name: "New Bar…", onMouseRelease: openNewBarDialog });
   ui.addMenuItem({ name: "Open Script Icons Folder", onMouseRelease: openIconsFolder });

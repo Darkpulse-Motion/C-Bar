@@ -62,15 +62,15 @@ With a layer (or an attribute) selected when you click a shortcut:
 
 **Alt + click** on a value node with a layer selected opens a menu of the layer's attributes (grouped by Attribute Editor tab, filtered by what the node can drive).
 
-### Edit Layout
+### Organize Layout
 
-Hold the mouse **1.5 seconds** on an empty part of the bar (or on a page button), or right-click › **Edit Layout**. The bar turns blue-grey and its shortcuts stop working:
+Hold the mouse **1.5 seconds** on an empty part of the bar (or on a page button), or right-click › **Organize Layout** (first entry of the menu). The bar turns blue-grey and its shortcuts stop working:
 
 - **drag** a shortcut and drop it on another one to take its place;
 - drop it on **1 2 3 4** to move it to that page;
 - **right-click** a shortcut: *Move Up / Down* (vertical bar) or *Move Left / Right* (horizontal bar), *Move to Page 1–4*, *Delete*;
 - the dotted **+** adds a spacer at the end of the page (spacers show a dotted frame);
-- the green **✓** or right-click › *Done Editing Layout* leaves the mode (a long press only enters it).
+- the green **✓** or right-click › *Done Organizing Layout* leaves the mode (a long press only enters it).
 
 ### Expressions
 
