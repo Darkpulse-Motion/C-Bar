@@ -1312,9 +1312,78 @@ var ATTRIBUTE_SHORT_NAMES = {
 };
 
 function shortAttributeName(layerId, attr) {
+  // One dimension: the attribute's short name plus the axis ("PosY").
+  var axis = String(attr).match(/^(.+)\.(x|y|z)$/);
+  if (axis) {
+    return shortAttributeName(layerId, axis[1]) + axis[2].toUpperCase();
+  }
   var name = attr;
   try { name = api.getAttributeNiceName(layerId, attr) || attr; } catch (e) {}
   return ATTRIBUTE_SHORT_NAMES.hasOwnProperty(name) ? ATTRIBUTE_SHORT_NAMES[name] : name;
+}
+
+// ------------------------------------------------------------
+// Which dimension? (1D node on a 2D / 3D attribute)
+// ------------------------------------------------------------
+// Cavalry does not tell a script which field (X, Y, Z) of an attribute
+// is being edited, only the attribute. When a node that outputs single
+// numbers (Value, Oscillator, Value Array…) is created on a vector
+// attribute, a small menu offers the whole attribute first (as before),
+// then each dimension. Returns true when the menu was shown: the node
+// is then created from the menu.
+function isVectorType(type) {
+  return /^(double|int)[23]$/.test(String(type || ""));
+}
+
+function askDimension(shortcut, target, nodeType) {
+  if (!target || !nodeType) {
+    return false;
+  }
+  var type = null;
+  try { type = api.getAttributeDefinition(target.layer, target.attr).type; } catch (e) {}
+  if (!isVectorType(type)) {
+    return false;
+  }
+  var outTypes = nodeOutputTypes(nodeType);
+  if (!outTypes || isStringNodeType(nodeType) ||
+      (outTypes.indexOf("double") === -1 && outTypes.indexOf("int") === -1)) {
+    return false;
+  }
+  var is3d = false;
+  try { is3d = !!api.get(target.layer, "is3d"); } catch (e2) {}
+  var entries = attributeEntries(target.layer, target.attr, type, is3d, outTypes);
+  if (entries.length <= 1) {
+    // e.g. a 2D rotation: only Z is offered, it is used directly.
+    if (entries.length === 1 && entries[0].path !== target.attr) {
+      createNode(shortcut, { layer: target.layer, attr: entries[0].path });
+      return true;
+    }
+    return false;
+  }
+  var nice = attrNiceName(target.layer, target.attr);
+  var dims = 0;
+  for (var c = 0; c < entries.length; c++) {
+    if (entries[c].path !== target.attr) {
+      dims++;
+    }
+  }
+  ui.clearContextMenu();
+  ui.addMenuItem({ name: shortcut.label + " → " + api.getNiceName(target.layer) + "." + nice, onMouseRelease: function () {} });
+  ui.addMenuItem({ name: "" });
+  for (var i = 0; i < entries.length; i++) {
+    (function (entry) {
+      var whole = entry.path === target.attr;
+      ui.addMenuItem({
+        name: whole ? (dims === 3 ? "All (X, Y, Z)" : "Both (X, Y)") : entry.label,
+        onMouseRelease: function () {
+          createNode(shortcut, { layer: target.layer, attr: entry.path });
+        }
+      });
+    })(entries[i]);
+  }
+  ui.showContextMenu();
+  restoreMainMenuSoon();
+  return true;
 }
 
 // Returns true if the node was linked to the attribute.
@@ -1659,6 +1728,12 @@ function createNode(shortcut, forcedTarget) {
     if (selType === "textShape") {
       attrTarget = { layer: fullSelection[0], attr: "text" };
     }
+  }
+
+  // A 1D node on a 2D / 3D attribute: ask which dimension (the node is
+  // created from the menu).
+  if (!forcedTarget && askDimension(shortcut, attrTarget, nodeType)) {
+    return;
   }
 
   // Layouts: like Create > Layout > Embed selected in … Layout.
@@ -2736,6 +2811,9 @@ function addFavoriteFromSelection(targetId) {
 function createFromFavorite(shortcut, forcedTarget) {
   var p = shortcut.preset || {};
   var attrTarget = forcedTarget || getSelectedAttributeTarget();
+  if (!forcedTarget && askDimension(shortcut, attrTarget, shortcut.type)) {
+    return;
+  }
   if (p.snapshot) {
     var restored = restoreSnapshot(p.snapshot, shortcut.type);
     if (restored) {

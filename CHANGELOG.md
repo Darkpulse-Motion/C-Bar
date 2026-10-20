@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- A node that outputs single numbers (Value, Oscillator, Value Array…) created with a 2D / 3D attribute selected opens a small menu: **Both (X, Y)** / **All (X, Y, Z)** (as before) or one dimension (e.g. *Scale Y*). Cavalry does not tell a script which field is being edited, so it is asked. A node linked to one dimension is named with the axis, e.g. `Rectangle_PosY_Oscillator`.
+
 ## v0.9.3 — 2026-10-20 (beta)
 
 ### Fixed
