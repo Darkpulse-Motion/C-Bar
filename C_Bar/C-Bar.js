@@ -2870,12 +2870,24 @@ function createPageButton(n) {
     frame.addRect(2.5, 2.5, size - 5, size - 5);
     d.addPath(frame.toObject(), { color: "#e6e6e6", stroke: true, strokeWidth: 1.5 });
   }
-  d.setToolTip("Page " + n);
+  d.setToolTip("Page " + n + (editMode ? "\nDrop a shortcut here to move it to this page" : "") +
+    "\nHold 2 s on the bar: edit its layout");
+  // The page changes on release: changing it on press would rebuild the
+  // bar under the mouse, and the release (which stops the long press)
+  // would be lost.
   d.onMousePress = function (position, button) {
     if (button === "left") {
+      startLongPress();
+    }
+  };
+  d.onMouseRelease = function (position, button) {
+    var wasPending = longPressPending();
+    cancelLongPress();
+    if (button === "left" && wasPending) {
       setCurrentPage(n);
     }
   };
+  pageButtons[n] = d;
   return d;
 }
 
@@ -2912,6 +2924,11 @@ function createSpacerWidget(vertical) {
 // pushes the page selector (1 2 3 4) to the bottom (vertical) or to the
 // right (horizontal).
 function fillLayout(layout, vertical) {
+  pageButtons = {};
+  if (editMode) {
+    fillEditLayout(layout, vertical);
+    return;
+  }
   var shown = visibleShortcuts();
   for (var i = 0; i < shown.length; i++) {
     if (shown[i].kind === "spacer") {
@@ -2935,13 +2952,254 @@ function fillLayout(layout, vertical) {
   }
 }
 
-// "Hide page selector" (per bar, off by default).
+// "Hide page selector" (per bar, off by default). Always shown in Edit
+// Layout mode (drop targets).
 function showPageSelector() {
-  return currentBar.hidePages !== true;
+  return editMode || currentBar.hidePages !== true;
 }
 
 function getBarItemCount() {
   return visibleShortcuts().length + 3 + (showPageSelector() ? 1 + PAGE_COUNT : 0);
+}
+
+// ============================================================
+// Edit Layout mode
+// ============================================================
+// Hold the mouse 2 s on the bar (an empty part or a page button), or
+// right-click > Edit Layout. The shortcuts stop working and can be
+// dragged: drop one on another to take its place, or on a page button
+// (1 2 3 4) to move it to that page. "+" adds a spacer at the end of
+// the page, "OK" leaves the mode (a long press does too).
+
+var LONG_PRESS_MS = 2000;
+var editMode = false;
+var longPressTimer = null;
+var pageButtons = {};   // page number -> its widget (drop targets)
+var editCells = [];     // { cell, shortcut } for the page shown, in order
+var drag = null;        // { from, cell, start, moved, target, page }
+
+var EDIT_BAR_COLOR = "#26313d";
+var EDIT_TARGET_COLOR = "#3e6a96";
+
+function startLongPress() {
+  try {
+    if (!longPressTimer) {
+      longPressTimer = new api.Timer({
+        onTimeout: function () {
+          longPressTimer.stop();
+          toggleEditMode();
+        }
+      });
+      longPressTimer.setRepeating(false);
+      longPressTimer.setInterval(LONG_PRESS_MS);
+    }
+    longPressTimer.stop();
+    longPressTimer.start();
+    longPressStarted = true;
+  } catch (e) {}
+}
+
+// True between the press and the 2 s mark.
+var longPressStarted = false;
+function longPressPending() {
+  return longPressStarted;
+}
+
+function cancelLongPress() {
+  longPressStarted = false;
+  try {
+    if (longPressTimer) {
+      longPressTimer.stop();
+    }
+  } catch (e) {}
+}
+
+function toggleEditMode() {
+  cancelLongPress();
+  editMode = !editMode;
+  drag = null;
+  if (mainBar) {
+    var bg = EDIT_BAR_COLOR;
+    if (!editMode) {
+      try { bg = ui.getThemeColor("Window"); } catch (e) { bg = "#202020"; }
+    }
+    try { mainBar.container.setBackgroundColor(bg); } catch (e2) {}
+  }
+  refillBars();
+  buildMainMenu();
+  logStatus(editMode ? "Edit Layout: drag the shortcuts, drop on 1 2 3 4 to change page, OK when done." :
+    "Layout saved.");
+}
+
+// Global position of the mouse along the bar, from a position local to
+// the pressed cell.
+function globalAlong(cell, position) {
+  var g = null;
+  try { g = cell.geometry(); } catch (e) {}
+  if (!g) {
+    return null;
+  }
+  return isVertical() ? g.top + position.y : g.left + position.x;
+}
+
+function containsAlong(widget, v) {
+  var g = null;
+  try { g = widget.geometry(); } catch (e) {}
+  if (!g) {
+    return false;
+  }
+  return isVertical() ? (v >= g.top && v <= g.bottom) : (v >= g.left && v <= g.right);
+}
+
+function setCellHighlight(index, on) {
+  if (index === null || index === undefined || !editCells[index]) {
+    return;
+  }
+  var c = editCells[index].cell;
+  try {
+    if (on) {
+      c.setBackgroundColor(EDIT_TARGET_COLOR);
+    } else {
+      c.setBackgroundColor(EDIT_BAR_COLOR);
+    }
+  } catch (e) {}
+}
+
+function createEditCell(shortcut, index, vertical) {
+  var inner = shortcut.kind === "spacer" ? createSpacerWidget(vertical) : createToolbarButton(shortcut);
+  try { inner.setTransparentForMouseEvents(true); } catch (e) {}
+  try { inner.setEnabled(false); } catch (e2) {}
+  var lay = new ui.HLayout();
+  lay.setMargins(0, 0, 0, 0);
+  lay.addStretch();
+  lay.add(inner);
+  lay.addStretch();
+  var cell = new ui.Container();
+  cell.setLayout(lay);
+  var len = shortcut.kind === "spacer" ? SPACER_SIZE : 26;
+  if (vertical) {
+    cell.setFixedWidth(26);
+    cell.setFixedHeight(len);
+  } else {
+    cell.setFixedWidth(len);
+    cell.setFixedHeight(26);
+  }
+  try { cell.setBackgroundColor(EDIT_BAR_COLOR); } catch (e3) {}
+  if (shortcut.kind === "spacer") {
+    try { cell.setBorder("#8a8a8a", 1, 2, 2); } catch (e4) {}
+  }
+  cell.setToolTip((shortcut.label || "Spacer") + "\nDrag to move it · drop on 1 2 3 4 to change its page");
+  cell.onMousePress = function (position, button) {
+    if (button !== "left") {
+      return;
+    }
+    drag = { from: index, cell: cell, start: globalAlong(cell, position), moved: false, target: null, page: null };
+  };
+  cell.onMouseMove = function (position) {
+    if (!drag || drag.cell !== cell) {
+      return;
+    }
+    var v = globalAlong(cell, position);
+    if (v === null || drag.start === null) {
+      return;
+    }
+    if (!drag.moved && Math.abs(v - drag.start) < 4) {
+      return;
+    }
+    drag.moved = true;
+    var target = null;
+    for (var i = 0; i < editCells.length; i++) {
+      if (containsAlong(editCells[i].cell, v)) {
+        target = i;
+        break;
+      }
+    }
+    var page = null;
+    for (var n = 1; n <= PAGE_COUNT; n++) {
+      if (pageButtons[n] && containsAlong(pageButtons[n], v)) {
+        page = n;
+      }
+    }
+    if (target !== drag.target) {
+      setCellHighlight(drag.target, false);
+      if (target !== drag.from) {
+        setCellHighlight(target, true);
+      }
+      drag.target = target;
+    }
+    drag.page = page;
+  };
+  cell.onMouseRelease = function () {
+    var d = drag;
+    drag = null;
+    if (!d || !d.moved) {
+      return;
+    }
+    if (d.page && d.page !== currentPage) {
+      moveShortcutToPage(editCells[d.from].shortcut.uid, d.page);
+    } else if (d.target !== null && d.target !== d.from) {
+      moveShortcutOnto(editCells[d.from].shortcut.uid, editCells[d.target].shortcut.uid, d.target > d.from);
+    } else {
+      setCellHighlight(d.target, false);
+    }
+  };
+  return cell;
+}
+
+// Moves a shortcut to the place of another one of the same page
+// (after it when moving forward, before it when moving back).
+function moveShortcutOnto(uid, targetUid, after) {
+  mutateBarShortcuts(currentBar.id, function (l) {
+    var from = indexOfUidIn(l, uid);
+    if (from === -1) {
+      return;
+    }
+    var moved = l.splice(from, 1)[0];
+    var to = indexOfUidIn(l, targetUid);
+    if (to === -1) {
+      l.splice(from, 0, moved);
+      return;
+    }
+    l.splice(after ? to + 1 : to, 0, moved);
+  });
+}
+
+// Moves a shortcut to the end of another page.
+function moveShortcutToPage(uid, page) {
+  mutateBarShortcuts(currentBar.id, function (l) {
+    var from = indexOfUidIn(l, uid);
+    if (from === -1) {
+      return;
+    }
+    var moved = l.splice(from, 1)[0];
+    moved.page = page;
+    l.push(moved);
+  });
+  logStatus("Moved to page " + page + ".");
+}
+
+function fillEditLayout(layout, vertical) {
+  editCells = [];
+  var shown = visibleShortcuts();
+  for (var i = 0; i < shown.length; i++) {
+    var cell = createEditCell(shown[i], i, vertical);
+    editCells.push({ cell: cell, shortcut: shown[i] });
+    layout.add(centeredCell(vertical, cell));
+  }
+  layout.add(centeredCell(vertical, createSpacerWidget(vertical)));
+  layout.add(centeredCell(vertical, createUtilityButton(
+    "addIcon.png", "+", "Add a spacer at the end of this page", function () { addSpacer(currentBar.id); })));
+  var done = new ui.Button("OK");
+  done.setSize(24, 24);
+  done.setToolTip("Done: leave Edit Layout");
+  done.onClick = toggleEditMode;
+  layout.add(centeredCell(vertical, done));
+  layout.addStretch();
+  // The page selector stays visible while editing (drop targets).
+  layout.add(centeredCell(vertical, createSeparator(vertical)));
+  for (var n = 1; n <= PAGE_COUNT; n++) {
+    layout.add(centeredCell(vertical, createPageButton(n)));
+  }
 }
 
 // ============================================================
@@ -2967,6 +3225,15 @@ function makeBar(vertical) {
   fillLayout(layout, vertical);
   var container = new ui.Container();
   container.setLayout(layout);
+  // Hold 2 s on an empty part of the bar: Edit Layout mode.
+  container.onMousePress = function (position, button) {
+    if (button === "left") {
+      startLongPress();
+    }
+  };
+  container.onMouseRelease = function () {
+    cancelLongPress();
+  };
   var bar = { container: container, layout: layout, vertical: vertical, root: container };
   // Horizontal: the window does not scroll sideways by itself, so the bar
   // sits in a ScrollView that shows a horizontal scroll bar when the
@@ -4263,6 +4530,7 @@ function buildMainMenu() {
   ui.clearContextMenu();
   addMenuEntries(currentBar.id);
   ui.addMenuItem({ name: "Settings…", onMouseRelease: openManager });
+  ui.addMenuItem({ name: editMode ? "Done Editing Layout" : "Edit Layout", onMouseRelease: toggleEditMode });
   ui.addMenuItem({ name: "" });
   ui.addMenuItem({ name: "New Bar…", onMouseRelease: openNewBarDialog });
   ui.addMenuItem({ name: "Open Script Icons Folder", onMouseRelease: openIconsFolder });
@@ -4823,6 +5091,9 @@ ui.onClose = function () {
     }
     if (resizeTimer) {
       resizeTimer.stop();
+    }
+    if (longPressTimer) {
+      longPressTimer.stop();
     }
   } catch (e) {}
 };

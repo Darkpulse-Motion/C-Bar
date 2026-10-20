@@ -62,6 +62,15 @@ With a layer (or an attribute) selected when you click a shortcut:
 
 **Alt + click** on a value node with a layer selected opens a menu of the layer's attributes (grouped by Attribute Editor tab, filtered by what the node can drive).
 
+### Edit Layout
+
+Hold the mouse **2 seconds** on an empty part of the bar (or on a page button), or right-click › **Edit Layout**. The bar turns blue-grey and its shortcuts stop working:
+
+- **drag** a shortcut and drop it on another one to take its place;
+- drop it on **1 2 3 4** to move it to that page;
+- **+** adds a spacer at the end of the page (spacers show a dotted frame);
+- **OK**, another long press or right-click › *Done Editing Layout* leaves the mode.
+
 ### Expressions
 
 Add one with **+ › Add Expression…**. Click applies it to the selected attribute(s); Alt + click lets you pick the attribute of the selected layer.
