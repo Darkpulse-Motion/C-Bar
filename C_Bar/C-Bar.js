@@ -5939,6 +5939,45 @@ function showAddMenu(targetId) {
   restoreMainMenuSoon();
 }
 
+// ------------------------------------------------------------
+// Secondary windows and other applications
+// ------------------------------------------------------------
+// Cavalry shows script windows opened with Container.show() above every
+// application (on macOS at least), so Settings stayed in front after a
+// Cmd + Tab. They are hidden while Cavalry is not the active
+// application and shown again when it comes back.
+var hiddenWhileInactive = [];
+
+function secondaryWindows() {
+  return [managerContainer, pickerContainer, exprDialog, rigDialog, barDialog, configDialog, aboutDialog];
+}
+
+function onCavalryActiveChanged(state) {
+  if (state === "inactive") {
+    var wins = secondaryWindows();
+    for (var i = 0; i < wins.length; i++) {
+      if (wins[i] && isShown(wins[i]) && hiddenWhileInactive.indexOf(wins[i]) === -1) {
+        hiddenWhileInactive.push(wins[i]);
+        try { wins[i].close(); } catch (e) {}
+      }
+    }
+  } else if (state === "active") {
+    var back = hiddenWhileInactive;
+    hiddenWhileInactive = [];
+    // Settings first, so the window that was in front of it ends on top.
+    back.sort(function (a, b) {
+      return (a === managerContainer ? 0 : 1) - (b === managerContainer ? 0 : 1);
+    });
+    for (var j = 0; j < back.length; j++) {
+      try { back[j].show(); } catch (e2) {}
+    }
+  }
+}
+
+try {
+  ui.addCallbackObject({ onAppStateChanged: onCavalryActiveChanged });
+} catch (eCb) {}
+
 buildMainMenu();
 ui.showContextMenuOnRightClick();
 
