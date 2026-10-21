@@ -5,20 +5,24 @@ var CBAR_ID = "default"; // CBAR_ID — do not edit this line (it is replaced in
 // Install:
 //   Scripts/C_Bar/C-Bar.js            ← "Default" bar (the only file to maintain)
 //   Scripts/C_Bar/C-Bar_assets/
-//       bars/<id>.json                ← settings and shortcuts of each bar
-//       icons/<script name>.png       ← custom script icons
+//       bars/<id>.json                ← settings, pages and shortcuts of each bar
+//       rigs/<id>.json                ← saved rigs
+//       icons/<Button name>.png       ← custom icons
+//       scripts/                      ← scripts imported with a bar
+//       backup/                       ← previous C-Bar.js after an Update
 //
-// Each bar created from ⚙ > "New Bar…" generates a "C-Bar_<Name>.js"
-// file next to this one: a copy of C-Bar.js where only the first line
-// (CBAR_ID) changes. After editing C-Bar.js, ⚙ > "Update Bars"
-// regenerates those copies.
+// Each bar created from ⚙ > Bar… > "New Bar…" generates a
+// "C-Bar_<Name>.js" file next to this one: a copy of C-Bar.js where only
+// the first line (CBAR_ID) changes. These copies are regenerated when
+// any bar opens (or with ⚙ > Bar… > "Update Bars").
 //
 // Orientation: chosen when a bar is created (or duplicated). Every bar
 // is a clean Cavalry toolbar, without a docking tab.
 //
-// ⚙ Settings: at the top, the shortcuts of the bar selected below;
-// at the bottom, the list of bars ("..." menu: Open, Duplicate, Rename,
-// Delete).
+// ⚙ Settings: the shortcuts of the selected bar, one page at a time
+// (1 2 3 4), and the list of bars ("..." menu: Open, Duplicate, Rename,
+// Switch orientation, Export, Delete). On the bar: hold 1.5 s on an
+// empty part, or right-click > Organize Layout, to arrange it in place.
 // ============================================================
 
 function logStatus(message) {
@@ -44,7 +48,7 @@ if (!SCRIPT_DIR) {
 SCRIPT_DIR = SCRIPT_DIR.replace(/[\/\\]+$/, "");
 
 // Version of this script. A GitHub Release of the same number (tag
-// "v" + CBAR_VERSION) is what Settings > Update C-Bar installs.
+// "v" + CBAR_VERSION) is what Settings > Update installs.
 var CBAR_VERSION = "0.9.3";
 var CBAR_REPO = "Darkpulse-Motion/C-Bar";
 
@@ -5694,11 +5698,11 @@ function addMenuEntries(targetId, withSpacer) {
 // From the bar's "+": every entry. From Settings > Add…: no Spacer
 // (Settings has its own Spacer button).
 // ============================================================
-// Update C-Bar (latest GitHub Release)
+// Update (latest GitHub Release)
 // ============================================================
 // Settings checks the latest Release of the repository once per session
 // (the request blocks Cavalry for a moment, so it runs only there). The
-// "Update C-Bar" button turns green when a newer version exists; it
+// "Update" button turns green when a newer version exists; it
 // installs that release's C-Bar.js after a confirmation, keeps the
 // previous file in C-Bar_assets/backup/ and regenerates the bar scripts.
 
