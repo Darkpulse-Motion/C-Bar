@@ -1256,9 +1256,16 @@ function firstArrayEntryPaths(nodeId) {
     out.sort(function (x, y) { return x.length - y.length; });
     return out;
   };
-  // The entries of some arrays (String Array) are not listed by
-  // getAttributes: "array.0" is then written directly.
+  // Array entries are not listed by getAttributes: they are the
+  // children of "array". Otherwise "array.0" is written directly.
   var paths = find();
+  if (!paths.length) {
+    var kids = [];
+    try { kids = api.getAttrChildren(nodeId, "array") || []; } catch (e3) {}
+    if (kids.length) {
+      paths = [String(kids[0])];
+    }
+  }
   return paths.length ? paths : ["array.0"];
 }
 
@@ -1323,6 +1330,8 @@ function shortAttributeName(layerId, attr) {
   }
   var name = attr;
   try { name = api.getAttributeNiceName(layerId, attr) || attr; } catch (e) {}
+  // Array entries: "Value.0" -> "Value0".
+  name = String(name).replace(/\.(\d+)$/, "$1");
   return ATTRIBUTE_SHORT_NAMES.hasOwnProperty(name) ? ATTRIBUTE_SHORT_NAMES[name] : name;
 }
 
@@ -5239,7 +5248,7 @@ function canPickAttribute(shortcut) {
 var PICKABLE_TYPES = ["double", "int", "double2", "int2", "double3", "int3", "color", "string", "richText"];
 // Attributes never offered in the Alt + click menu (layer bookkeeping
 // strings: name, notes, label colour…).
-var SKIPPED_ATTRS = ["niceName", "userData", "uuid", "notes", "color"];
+var SKIPPED_ATTRS = ["niceName", "userData", "uuid", "notes", "color", "graph"];
 
 // 2D / 3D attributes get Cavalry's own "constrain proportions" chain
 // icon; 1D and colour attributes have no icon.
@@ -5528,10 +5537,26 @@ function collectPickableAttributes(layerId, outTypes) {
   try { attrs = api.getAttributes(layerId) || []; } catch (e) {}
   var types = {};
   var slotChildren = {};
+  var listEntries = {};   // list attribute -> its entries ("array" -> ["array.0", …])
   for (var i = 0; i < attrs.length; i++) {
     var a = attrs[i];
     var d = null;
     try { d = api.getAttributeDefinition(layerId, a); } catch (e2) {}
+    // Lists (the entries of a Value / Value 2 / Value 3 Array…): their
+    // entries are not returned by getAttributes, only as children.
+    if (d && d.isArray && SKIPPED_ATTRS.indexOf(a) === -1) {
+      var kids = [];
+      try { kids = api.getAttrChildren(layerId, a) || []; } catch (eK) {}
+      for (var k = 0; k < kids.length; k++) {
+        var kd = null;
+        try { kd = api.getAttributeDefinition(layerId, kids[k]); } catch (eKd) {}
+        if (kd && PICKABLE_TYPES.indexOf(kd.type) !== -1) {
+          types[kids[k]] = kd.type;
+          (listEntries[a] = listEntries[a] || []).push(kids[k]);
+        }
+      }
+      continue;
+    }
     if (!d || PICKABLE_TYPES.indexOf(d.type) === -1 || SKIPPED_ATTRS.indexOf(a) !== -1) {
       continue;
     }
@@ -5547,6 +5572,20 @@ function collectPickableAttributes(layerId, outTypes) {
   var used = {};
 
   function entriesFor(attr) {
+    if (listEntries[attr] && !used[attr]) {
+      used[attr] = true;
+      var all = [];
+      for (var le = 0; le < listEntries[attr].length; le++) {
+        var path = listEntries[attr][le];
+        if (!used[path]) {
+          used[path] = true;
+          // "Value.0" -> "Value 0"
+          var label = attrNiceName(layerId, path).replace(/\.(\d+)$/, " $1");
+          all = all.concat(attributeEntries(layerId, path, types[path], is3d, outTypes, label));
+        }
+      }
+      return all;
+    }
     if (used[attr] || !types[attr]) {
       return [];
     }

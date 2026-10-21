@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Alt + click on an array (Value Array, Value 2 Array, Value 3 Array…) now lists its entries (*Value 0*, *Value 1*…, with X / Y / Z for 2D / 3D entries), not only Count and Array Index. A node linked to an entry is named e.g. `Value 2 Array_Value0X_Noise`.
 - Oscillator, Noise and Random linked to an attribute (selected or Alt + click) keep its current value: it goes into the Oscillator's *Value Offset*, the Noise's *Offset* (Minimum / Maximum stay at −10 / +10) and the Random's *Maximum*. Single values only (one dimension, or a 1D attribute); favourites keep their own settings.
 - Favourites (Add Selected Layer) of a shape: recalling one no longer removes its Fill, Stroke or generator (only the other layers saved with it are removed).
 - Closing a bar also closes its Settings and other open C-Bar windows: left open, a click in them ran the code of a closed window (risk of a Cavalry crash).
