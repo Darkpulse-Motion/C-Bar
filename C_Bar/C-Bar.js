@@ -2712,8 +2712,9 @@ function captureSnapshot(layerId) {
 }
 
 // Recreates a snapshot in the active composition and returns the new
-// node. Only the node itself is kept (layers serialised with it are
-// removed), and inputs that come from outside it are disconnected: in
+// node. Only the node itself is kept (other layers serialised with it
+// are removed, its sub-nodes stay), and inputs that come from outside
+// it are disconnected: in
 // another scene the same layer id can be an unrelated layer. Links
 // between its own attributes stay.
 function restoreSnapshot(snapshot, type) {
@@ -2734,9 +2735,17 @@ function restoreSnapshot(snapshot, type) {
       created.push(all[j]);
     }
   }
+  // Root: a new layer of the saved type whose parent is not new (a
+  // child of the same type, e.g. a group in a group, is not the root).
+  var isNew = {};
+  for (var n = 0; n < created.length; n++) {
+    isNew[created[n]] = true;
+  }
   var root = null;
   for (var r = 0; r < created.length && !root; r++) {
-    if (api.getLayerType(created[r]) === type) {
+    var parent = "";
+    try { parent = api.getParent(created[r]); } catch (eP) {}
+    if (api.getLayerType(created[r]) === type && !isNew[parent]) {
       root = created[r];
     }
   }
@@ -2746,9 +2755,14 @@ function restoreSnapshot(snapshot, type) {
     }
     return null;
   }
+  // Other layers serialised with it (children, connected behaviours and
+  // arrays) are removed. Its own hidden sub-nodes (Fill, Stroke,
+  // generator…) are kept: deleting them would strip the node.
   for (var c = 0; c < created.length; c++) {
-    if (created[c] !== root) {
-      try { api.deleteLayer(created[c]); } catch (eDel) {}
+    var other = created[c];
+    if (other !== root && (hasSuperType(other, "shape") || hasSuperType(other, "drawable") ||
+        hasSuperType(other, "behaviourBase") || hasSuperType(other, "indexableArray"))) {
+      try { api.deleteLayer(other); } catch (eDel) {}
     }
   }
   var attrs = [];

@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Favourites (Add Selected Layer) of a shape: recalling one no longer removes its Fill, Stroke or generator (only the other layers saved with it are removed).
 - Closing a bar also closes its Settings and other open C-Bar windows: left open, a click in them ran the code of a closed window (risk of a Cavalry crash).
 - macOS: when C-Bar windows are hidden because Cavalry goes to the background, the console says so (to find out why Settings can still stay in front on some systems).
 
