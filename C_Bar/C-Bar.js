@@ -3131,7 +3131,7 @@ function centeredCell(vertical, widget) {
 
 // Page selector: light grey squares with their number, the size of the
 // old solo buttons; the number of the page shown is green, and the page
-// under a dragged shortcut (Edit Layout) is highlighted.
+// under a dragged shortcut (Organize Layout) is highlighted.
 // cavalry.Path.addRect takes (fromX, fromY, toX, toY).
 var PAGE_BUTTON_SIZE = 24;
 var PAGE_BUTTON_COLOR = "#4a4a4a";
@@ -3176,7 +3176,7 @@ function createPageButton(n) {
   d.onMouseRelease = function (position, button) {
     var wasPending = longPressPending();
     cancelLongPress();
-    // Normal mode: only when the long press did not fire. Edit Layout:
+    // Normal mode: only when the long press did not fire. Organize Layout:
     // there is no long press, a click shows the page.
     if (button === "left" && (wasPending || editMode)) {
       setCurrentPage(n);
@@ -3263,10 +3263,10 @@ function getBarItemCount() {
 }
 
 // ============================================================
-// Edit Layout mode
+// Organize Layout mode
 // ============================================================
 // Hold the mouse 1.5 s on the bar (an empty part or a page button), or
-// right-click > Edit Layout. The shortcuts stop working and can be
+// right-click > Organize Layout. The shortcuts stop working and can be
 // dragged between two others, or onto a page button (1 2 3 4) to move
 // it to that page; right-click gives Move / Delete. The dotted "+" adds
 // a spacer at the end of the page, the green check mark leaves the mode
@@ -3539,7 +3539,7 @@ function createEditCell(shortcut, index, vertical) {
   return cell;
 }
 
-// Right-click on a shortcut in Edit Layout: move it one step (Up / Down
+// Right-click on a shortcut in Organize Layout: move it one step (Up / Down
 // on a vertical bar, Left / Right on a horizontal one), to another page,
 // or delete it.
 function showEditCellMenu(shortcut) {
@@ -3633,7 +3633,7 @@ function moveShortcutToPage(uid, page) {
   logStatus("Moved to page " + page + ".");
 }
 
-// Edit Layout "+": a dotted frame with a small "+", to show that it
+// Organize Layout "+": a dotted frame with a small "+", to show that it
 // adds a spacer (an empty gap). addRect takes (fromX, fromY, toX, toY).
 function createSpacerTile() {
   var size = 24;
@@ -3679,7 +3679,7 @@ function createSpacerTile() {
   return d;
 }
 
-// Edit Layout "Done": a green check mark (ui.Draw is y-up).
+// Organize Layout "Done": a green check mark (ui.Draw is y-up).
 function createDoneTile() {
   var size = 24;
   var d = new ui.Draw();
@@ -3824,7 +3824,7 @@ function refillBars() {
   }
   // A pending long press never survives a rebuild of the bar: the
   // widget that got the press is gone, so its release would be lost and
-  // Edit Layout would start by itself (e.g. after a click on Hide page
+  // Organize Layout would start by itself (e.g. after a click on Hide page
   // selector in Settings).
   cancelLongPress();
   mainBar.layout.clear();
