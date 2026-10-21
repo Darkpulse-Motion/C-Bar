@@ -1441,13 +1441,6 @@ function linkToSelectedAttribute(nodeId, target, baseName) {
 //                      contains "Vertical").
 //   Grid Layout Group: Grid Layout Group > Grid Layout Row > layers.
 //   Grid Layout Row:   the selected layers become its children.
-function layoutKindFor(type) {
-  if (type === "layoutGroup") { return "layout"; }
-  if (type === "gridLayoutGroup") { return "grid"; }
-  if (type === "gridLayoutRow") { return "row"; }
-  return null;
-}
-
 function setLayoutDirection(layoutId, shortcut) {
   var vertical = shortcut.layoutDirection === "vertical" ||
     (!shortcut.layoutDirection && /vertical/i.test(String(shortcut.label || "")));
@@ -1736,8 +1729,6 @@ function createNode(shortcut, forcedTarget) {
     return;
   }
 
-  // Layouts: like Create > Layout > Embed selected in … Layout.
-  var layoutKind = null; // plain Layout nodes: created alone (see the "Embed in … Layout" shortcuts)
   // Align: added to the deformers of the selected layer.
   var deformerHost = null;
   if (!forcedTarget && nodeType === "align" && fullSelection.length === 1) {
@@ -1753,16 +1744,6 @@ function createNode(shortcut, forcedTarget) {
     nodeId = api.create(nodeType, displayName);
   } catch (e) {
     logStatus("Could not create '" + displayName + "' (" + nodeType + "): " + e);
-    return;
-  }
-
-  if (layoutKind) {
-    if (fullSelection.length) {
-      embedInLayout(nodeId, fullSelection, layoutKind, shortcut);
-    } else if (layoutKind === "layout") {
-      setLayoutDirection(nodeId, shortcut);
-    }
-    api.select([nodeId]);
     return;
   }
 
@@ -2913,14 +2894,6 @@ function visibleShortcuts() {
 
 // Node family, guessed from the type: Alt + click (attribute picker)
 // is not offered on shapes and filters.
-function categoryFromSuperTypes(superTypes) {
-  var s = (superTypes || []).join(" ").toLowerCase();
-  if (/filter/.test(s)) { return "effect"; }
-  if (/deformer/.test(s)) { return "deformer"; }
-  if (/shape/.test(s)) { return "shape"; }
-  return "utility";
-}
-
 function guessCategory(type, displayName) {
   var t = (String(type || "") + " " + String(displayName || "")).toLowerCase();
   if (/filter|blur|glow|grain|chroma ?key|bloom|mosaik|kaleido|kolorama|riso|ps1|outliner|choker|threshold|light ?sweep|levels|hue|tint|posteri|sharpen|dither|halftone|vignette|shadow/.test(t)) {
@@ -4876,9 +4849,8 @@ function exportBar(id) {
     showMessage("Could not write the file");
     return;
   }
-  var nRigs = 0, nScripts = 0;
-  for (var r in pack.rigs) { nRigs++; }
-  for (var sc in pack.scripts) { nScripts++; }
+  var nRigs = Object.keys(pack.rigs).length;
+  var nScripts = Object.keys(pack.scripts).length;
   showMessage("Bar exported");
   logStatus("Bar \"" + bar.name + "\" exported (" + list.length + " shortcut(s), " + nRigs + " rig(s), " +
     nScripts + " script(s)): " + path);
@@ -5040,7 +5012,6 @@ var configDialog = null;
 var configDialogTitle = null;
 var configDialogBtn = null;
 var configChecks = {};
-var configCountLabels = {};
 var configMode = "export";
 
 function openConfigDialog(mode) {
