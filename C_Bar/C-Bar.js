@@ -6013,6 +6013,11 @@ function onCavalryActiveChanged(state) {
         try { wins[i].close(); } catch (e) {}
       }
     }
+    // One line per switch, only when something was hidden (helps tell
+    // whether this callback runs at all on a given system).
+    if (hiddenWhileInactive.length) {
+      logStatus(hiddenWhileInactive.length + " window(s) hidden while Cavalry is in the background.");
+    }
   } else if (state === "active") {
     var back = hiddenWhileInactive;
     hiddenWhileInactive = [];
@@ -6034,6 +6039,16 @@ buildMainMenu();
 ui.showContextMenuOnRightClick();
 
 ui.onClose = function () {
+  // Secondary windows (Settings, Add, Expression…) run this window's
+  // code: left open after the bar closes, a click in them would call a
+  // script that no longer exists. They are closed with it.
+  var wins = [];
+  try { wins = secondaryWindows(); } catch (eW) {}
+  for (var w = 0; w < wins.length; w++) {
+    if (wins[w]) {
+      try { wins[w].close(); } catch (eC) {}
+    }
+  }
   try {
     if (syncTimer) {
       syncTimer.stop();

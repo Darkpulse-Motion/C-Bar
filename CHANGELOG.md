@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+- Closing a bar also closes its Settings and other open C-Bar windows: left open, a click in them ran the code of a closed window (risk of a Cavalry crash).
+- macOS: when C-Bar windows are hidden because Cavalry goes to the background, the console says so (to find out why Settings can still stay in front on some systems).
+
 ### Added
 - A node that outputs single numbers (Value, Oscillator, Value Array…) created with a 2D / 3D attribute selected opens a small menu: **Both (X, Y)** / **All (X, Y, Z)** (as before) or one dimension (e.g. *Scale Y*). Cavalry does not tell a script which field is being edited, so it is asked. A node linked to one dimension is named with the axis, e.g. `Rectangle_PosY_Oscillator`.
 
