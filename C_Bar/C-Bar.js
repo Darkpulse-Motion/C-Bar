@@ -1390,8 +1390,37 @@ function askDimension(shortcut, target, nodeType) {
   return true;
 }
 
+// Oscillator, Noise, Random: the attribute's current value goes into
+// this setting, so linking them keeps the value set by the user
+// (Minimum / Maximum keep their defaults, except Random's Maximum).
+var BEHAVIOUR_SEED_ATTRS = {
+  oscillator: "offset",          // Value Offset
+  noise: "generator.offset",     // Offset (of the noise type)
+  random: "maximum"              // Maximum
+};
+
+function seedBehaviourValue(nodeId, type, value) {
+  var attr = BEHAVIOUR_SEED_ATTRS[type];
+  // Single numbers only: these settings have one value, a 2D / 3D
+  // value (whole Position…) cannot go into them.
+  if (!attr || typeof value !== "number" || value === 0) {
+    return false;
+  }
+  try {
+    var o = {};
+    o[attr] = value;
+    api.set(nodeId, o);
+    return true;
+  } catch (e) {
+    logStatus("Could not copy the current value into " + api.getNiceName(nodeId) + " (" + attr + ").");
+    return false;
+  }
+}
+
 // Returns true if the node was linked to the attribute.
-function linkToSelectedAttribute(nodeId, target, baseName) {
+// keepSettings: a favourite, whose own settings are not overwritten by
+// the attribute's value (Oscillator / Noise / Random).
+function linkToSelectedAttribute(nodeId, target, baseName, keepSettings) {
   if (!target || !isValueNode(nodeId)) {
     return false;
   }
@@ -1431,6 +1460,8 @@ function linkToSelectedAttribute(nodeId, target, baseName) {
   } else if (VALUE_NODE_TYPES.indexOf(nodeTypeId) !== -1 || BLEND_NODE_TYPES.indexOf(nodeTypeId) !== -1 ||
       nodeTypeId === "colorArray") {
     seedNodeValue(nodeId, nodeTypeId, currentValue);
+  } else if (!keepSettings && BEHAVIOUR_SEED_ATTRS[nodeTypeId]) {
+    seedBehaviourValue(nodeId, nodeTypeId, currentValue);
   }
   try { api.rename(nodeId, linkedName); } catch (e5) {}
   logStatus("Node created: " + linkedName + " → " + layerName + "." + target.attr);
@@ -2818,7 +2849,7 @@ function createFromFavorite(shortcut, forcedTarget) {
     if (restored) {
       try { api.rename(restored, shortcut.label); } catch (eName) {}
       logStatus("Favourite created: " + api.getNiceName(restored));
-      linkToSelectedAttribute(restored, attrTarget, shortcut.label);
+      linkToSelectedAttribute(restored, attrTarget, shortcut.label, true);
       api.select([restored]);
       return;
     }
@@ -2855,7 +2886,7 @@ function createFromFavorite(shortcut, forcedTarget) {
   } else {
     logStatus("Favourite created: " + api.getNiceName(nodeId));
   }
-  linkToSelectedAttribute(nodeId, attrTarget, shortcut.label);
+  linkToSelectedAttribute(nodeId, attrTarget, shortcut.label, true);
   api.select([nodeId]);
 }
 
