@@ -128,3 +128,7 @@ Bug reports and ideas are welcome in the **Issues** tab: describe what you did, 
 ## License
 
 [MIT](LICENSE)
+
+## Special thanks
+
+Many thanks to my friends **[Antonin](https://www.instagram.com/antonin.work/)** and **[Julien](https://www.instagram.com/shoobaka/)** for their help in creating C-Bar.
