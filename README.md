@@ -50,7 +50,7 @@ With a layer (or an attribute) selected when you click a shortcut:
 
 | Node | Result |
 |---|---|
-| Value, Value 2/3, Value Array…, Oscillator, Number Range… with an **attribute** selected | Output connected to the attribute, node parented to the layer, named `Layer_Attribute_Node` (Position → `Pos`, Rotation → `Rot`), e.g. `Rectangle_Pos_Oscillator`. Value nodes and Blends (into *First*) get the current value of the attribute, so nothing jumps. |
+| Value, Value 2/3, Value Array…, Oscillator, Number Range… with an **attribute** selected | Output connected to the attribute, node parented to the layer, named `Layer_Attribute_Node` (Position → `Pos`, Rotation → `Rot`), e.g. `Rectangle_Pos_Oscillator`. Value nodes, Blends (into *First*), Oscillator (*Value Offset*), Noise (*Offset*) and Random (*Maximum*) get the current value of the attribute, so nothing jumps. A node that outputs single numbers on a 2D / 3D attribute asks which dimension: *Both* / *All*, or X, Y, Z. |
 | **String nodes** (String, String Array, Sub-String…) with a text **attribute** selected (e.g. the String of a Text Shape) | Connected, parented, named `Layer_Attribute_Node`; the current text is copied into the node (String Generator builds its own text). Alt + click only lists the layer's text attributes. With a **Text Shape** selected, String, String Array, String Generator, String From Asset and Get Name go to its String without selecting that attribute. |
 | **Behaviours** (Oscillator, Noise, Align…) and path behaviours (Subdivide, Clean Up, Resample Path…) | Added to the layer's Deformers, parented, named `Layer_Node`. |
 | **Filters** (Alt + click) | Added to the layer's Filters, parented, named `Layer_Filter`. |
@@ -61,7 +61,7 @@ With a layer (or an attribute) selected when you click a shortcut:
 | Sub-Mesh Bounding Box, Extract Sub-Meshes | Selected layer as Input Shape. |
 | **Embed in Horizontal / Vertical / Grid Layout** | Same as the Shelf buttons: the selected layers are embedded in a new layout. |
 
-**Alt + click** on a value node with a layer selected opens a menu of the layer's attributes (grouped by Attribute Editor tab, filtered by what the node can drive).
+**Alt + click** on a value node with a layer selected opens a menu of the layer's attributes (grouped by Attribute Editor tab, filtered by what the node can drive), including the entries of arrays (*Value 0*, *Value 1*…).
 
 ### Organize Layout
 

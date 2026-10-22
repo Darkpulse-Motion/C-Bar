@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.9.4 — 2026-10-22 (beta)
 
 ### Fixed
 - Alt + click on an array (Value Array, Value 2 Array, Value 3 Array…) now lists its entries (*Value 0*, *Value 1*…, with X / Y / Z for 2D / 3D entries), not only Count and Array Index. A node linked to an entry is named e.g. `Value 2 Array_Value0X_Noise`.
