@@ -38,6 +38,38 @@ function getScriptsRoot() {
   return base + "/Scripts";
 }
 
+// Synced bars must not depend on the macOS user name: script paths inside a
+// Cavalry Scripts folder are stored as "$SCRIPTS/…" and resolved on this machine.
+var SCRIPTS_TOKEN = "$SCRIPTS/";
+var SCRIPTS_MARKER = /[\/\\]Cavalry[\/\\]Scripts[\/\\]/;
+
+// Absolute path -> "$SCRIPTS/…" when the file lives in a Cavalry Scripts folder
+// (this machine's or another one's: the user name is dropped).
+function toPortablePath(path) {
+  path = String(path || "");
+  if (!path || path.indexOf(SCRIPTS_TOKEN) === 0) {
+    return path;
+  }
+  var root = getScriptsRoot() + "/";
+  if (path.indexOf(root) === 0) {
+    return SCRIPTS_TOKEN + path.slice(root.length);
+  }
+  var m = path.match(SCRIPTS_MARKER);
+  if (m) {
+    return SCRIPTS_TOKEN + path.slice(m.index + m[0].length);
+  }
+  return path; // outside any Scripts folder: kept as is
+}
+
+// "$SCRIPTS/…" (or an old absolute path) -> real path on this machine.
+function fromPortablePath(path) {
+  path = toPortablePath(path);
+  if (path.indexOf(SCRIPTS_TOKEN) === 0) {
+    return getScriptsRoot() + "/" + path.slice(SCRIPTS_TOKEN.length);
+  }
+  return path;
+}
+
 var SCRIPT_DIR = "";
 try {
   SCRIPT_DIR = String(ui.scriptLocation || "");
@@ -251,7 +283,7 @@ function resolveIcon(shortcut) {
     return resolveIcon({ type: shortcut.rootType });
   }
   if (shortcut.kind === "script") {
-    return findScriptIcon(shortcut.path);
+    return findScriptIcon(fromPortablePath(shortcut.path));
   }
   if (shortcut.iconFile && builtin[shortcut.iconFile.toLowerCase()]) {
     return builtin[shortcut.iconFile.toLowerCase()];
@@ -342,12 +374,13 @@ function findScriptIcon(scriptPath) {
 }
 
 function runScriptShortcut(shortcut) {
-  if (!api.filePathExists(shortcut.path)) {
-    logStatus("Script not found: " + shortcut.path);
+  var path = fromPortablePath(shortcut.path);
+  if (!api.filePathExists(path)) {
+    logStatus("Script not found: " + path);
     return;
   }
   try {
-    ui.runFileScript(shortcut.path);
+    ui.runFileScript(path);
     logStatus("Script opened: " + shortcut.label);
   } catch (e) {
     logStatus("Could not open script '" + shortcut.label + "': " + e);
@@ -2078,13 +2111,13 @@ function addScriptShortcut(script, targetId) {
   var id = targetId || currentBar.id;
   var list = getBarShortcuts(id);
   for (var i = 0; i < list.length; i++) {
-    if (list[i].kind === "script" && list[i].path === script.path) {
+    if (list[i].kind === "script" && toPortablePath(list[i].path) === toPortablePath(script.path)) {
       logStatus("'" + script.name + "' is already in the bar.");
       return;
     }
   }
   mutateBarShortcuts(id, function (l) {
-    l.push({ kind: "script", path: script.path, label: script.name, uid: makeUid("script_" + script.name) });
+    l.push({ kind: "script", path: toPortablePath(script.path), label: script.name, uid: makeUid("script_" + script.name) });
   });
   logStatus("Script added: " + script.name);
 }
@@ -4355,7 +4388,7 @@ function buildManagerModel() {
     var row = {
       uuid: s.uid,
       label: (s.preset ? "♥ " : "") + (s.kind === "expression" ? " π  " : "") + s.label,
-      tooltip: (s.preset ? "Favourite — " : "") + (s.kind === "script" ? s.path :
+      tooltip: (s.preset ? "Favourite — " : "") + (s.kind === "script" ? fromPortablePath(s.path) :
         (s.kind === "expression" ? "Expression: " + s.expression :
           (s.kind === "rig" ? "Rig — " + (s.description || s.label) :
           s.kind === "layout" ? "Shelf action" :
@@ -4874,8 +4907,8 @@ function exportBar(id) {
         pack.rigs[s.rig] = rig;
       }
     }
-    if (s.kind === "script" && s.path && !pack.scripts[s.path] && api.filePathExists(s.path)) {
-      try { pack.scripts[s.path] = api.readFromFile(s.path); } catch (e) {}
+    if (s.kind === "script" && s.path && !pack.scripts[toPortablePath(s.path)] && api.filePathExists(fromPortablePath(s.path))) {
+      try { pack.scripts[toPortablePath(s.path)] = api.readFromFile(fromPortablePath(s.path)); } catch (e) {}
     }
     var icon = null;
     try { icon = resolveIcon(s); } catch (e2) {}
@@ -4962,8 +4995,8 @@ function importBar() {
   // Scripts: copied into C-Bar_assets/scripts when missing here.
   var scriptPaths = {};
   for (var sp in (pack.scripts || {})) {
-    if (api.filePathExists(sp)) {
-      scriptPaths[sp] = sp;
+    if (api.filePathExists(fromPortablePath(sp))) {
+      scriptPaths[toPortablePath(sp)] = toPortablePath(sp);
       continue;
     }
     ensureFolder(SCRIPTS_COPY_DIR);
@@ -4971,7 +5004,7 @@ function importBar() {
     if (!api.filePathExists(copy)) {
       try { api.writeToFile(copy, pack.scripts[sp], true); } catch (e2) {}
     }
-    scriptPaths[sp] = copy;
+    scriptPaths[toPortablePath(sp)] = toPortablePath(copy);
   }
 
   // Icons: added to C-Bar_assets/icons when missing.
@@ -4987,8 +5020,8 @@ function importBar() {
     if (s.kind === "rig" && rigIds[s.rig]) {
       s.rig = rigIds[s.rig];
     }
-    if (s.kind === "script" && scriptPaths[s.path]) {
-      s.path = scriptPaths[s.path];
+    if (s.kind === "script" && scriptPaths[toPortablePath(s.path)]) {
+      s.path = scriptPaths[toPortablePath(s.path)];
     }
   }
 
