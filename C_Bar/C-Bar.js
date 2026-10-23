@@ -41,7 +41,8 @@ function getScriptsRoot() {
 // Synced bars must not depend on the macOS user name: script paths inside a
 // Cavalry Scripts folder are stored as "$SCRIPTS/…" and resolved on this machine.
 var SCRIPTS_TOKEN = "$SCRIPTS/";
-var SCRIPTS_MARKER = /[\/\\]Cavalry[\/\\]Scripts[\/\\]/;
+// Case-insensitive: a synced copy of the folder can be named "CAVALRY/Scripts".
+var SCRIPTS_MARKER = /[\/\\]Cavalry[\/\\]Scripts[\/\\]/i;
 
 // Absolute path -> "$SCRIPTS/…" when the file lives in a Cavalry Scripts folder
 // (this machine's or another one's: the user name is dropped).
@@ -5580,12 +5581,12 @@ function collectPickableAttributes(layerId, outTypes) {
     if (d && d.isArray && SKIPPED_ATTRS.indexOf(a) === -1) {
       var kids = [];
       try { kids = api.getAttrChildren(layerId, a) || []; } catch (eK) {}
-      for (var k = 0; k < kids.length; k++) {
+      for (var ki = 0; ki < kids.length; ki++) {
         var kd = null;
-        try { kd = api.getAttributeDefinition(layerId, kids[k]); } catch (eKd) {}
+        try { kd = api.getAttributeDefinition(layerId, kids[ki]); } catch (eKd) {}
         if (kd && PICKABLE_TYPES.indexOf(kd.type) !== -1) {
-          types[kids[k]] = kd.type;
-          (listEntries[a] = listEntries[a] || []).push(kids[k]);
+          types[kids[ki]] = kd.type;
+          (listEntries[a] = listEntries[a] || []).push(kids[ki]);
         }
       }
       continue;
