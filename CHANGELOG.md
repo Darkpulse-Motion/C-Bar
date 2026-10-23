@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.9.5 — 2026-10-23 (beta)
 
 ### Fixed
 - Script shortcuts keep working when bars are synced between computers (pCloud, Dropbox…) or shared: paths inside a Cavalry Scripts folder are stored as `$SCRIPTS/…` and resolved on each machine, so they no longer depend on the user name. Bars saved with absolute paths still work.
