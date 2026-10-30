@@ -99,7 +99,7 @@ Select a layer and use **+ › Add Selected Layers as Rig…**. Choose what to i
 - **Set Icon…** (Settings › **…**, or right-click in Organize Layout): a window with the 200 icons of the pack and, in a second tab, Cavalry's own icons, with a search field and previews; click one to use it. **Other PNG…** takes your own file (ideally 40 × 40 px).
 - **Icon Colour**: White, Green, Yellow, Blue, Red or any hex colour. The original image is kept, so colours never degrade.
 - **Remove Custom Icon**: back to the default icon.
-- You can still put a PNG named exactly like the button in `C-Bar_assets/icons/` — e.g. `Value x -1.png`.
+- You can still put a PNG named exactly like the button in `C-Bar_assets/icons/customs/` — e.g. `Value x -1.png` (right-click › *Open Script Icons Folder* opens it).
 
 ## Folder structure
 
@@ -111,7 +111,8 @@ C_Bar/
     ├── bars/                 ← one JSON per bar (your shortcuts)
     ├── rigs/                 ← saved rigs
     ├── icons/                ← custom icons
-    │   └── base/             ← icon pack (Tabler Icons)
+    │   ├── base/             ← icon pack (Tabler Icons)
+    │   └── customs/          ← your own icons (named like the button)
     └── scripts/              ← scripts imported with a bar
 ```
 

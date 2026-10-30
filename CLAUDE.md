@@ -10,7 +10,7 @@ C-Bar is a customisable toolbar for **Cavalry 2.x** (scripting UI), in the spiri
 ## Coding rules
 - Cavalry's JavaScript engine: **ES5 only** — `var` (no `let` / `const`), no arrow functions, no template literals.
 - The UI of the script is in **English**.
-- No new icon files in the code: use Cavalry's own icons, the pack in `C-Bar_assets/icons/base/`, or custom icons the user drops in `C-Bar_assets/icons/`.
+- No new icon files in the code: use Cavalry's own icons, the pack in `C-Bar_assets/icons/base/`, or custom icons the user drops in `C-Bar_assets/icons/customs/`.
 - Check syntax before committing: `node --check C_Bar/C-Bar.js`.
 
 ## Workflow
@@ -20,7 +20,7 @@ C-Bar is a customisable toolbar for **Cavalry 2.x** (scripting UI), in the spiri
 ## Releasing
 1. Set `CBAR_VERSION` and rename `## Unreleased` in the CHANGELOG to `## v0.x.y — YYYY-MM-DD (beta)`.
 2. Commit `Release v0.x.y (beta)` and push to `main`.
-3. Zip: the `C_Bar` folder (with empty `C-Bar_assets/{bars,rigs,scripts}`, and `C-Bar_assets/icons/` holding only the `base/` pack) + README, CHANGELOG, LICENSE → `C-Bar_v0.x.y-beta.zip`.
+3. Zip: the `C_Bar` folder (with empty `C-Bar_assets/{bars,rigs,scripts}`, and `C-Bar_assets/icons/` holding only the `base/` pack and an empty `customs/`) + README, CHANGELOG, LICENSE → `C-Bar_v0.x.y-beta.zip`.
 4. GitHub Release: tag `v0.x.y` on `main`, title `C-Bar v0.x.y (beta)`, zip attached, label **None** (a pre-release is ignored by *Update*), **Set as the latest release** checked.
 
 ## Cavalry scripting pitfalls (learnt the hard way)

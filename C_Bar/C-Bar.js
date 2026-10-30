@@ -7,7 +7,8 @@ var CBAR_ID = "default"; // CBAR_ID — do not edit this line (it is replaced in
 //   Scripts/C_Bar/C-Bar_assets/
 //       bars/<id>.json                ← settings, pages and shortcuts of each bar
 //       rigs/<id>.json                ← saved rigs
-//       icons/<Button name>.png       ← custom icons
+//       icons/base/                   ← icon pack (Tabler Icons)
+//       icons/customs/<Button name>.png ← custom icons
 //       scripts/                      ← scripts imported with a bar
 //       backup/                       ← previous C-Bar.js after an Update
 //
@@ -89,6 +90,8 @@ var MAIN_SCRIPT = SCRIPT_DIR + "/C-Bar.js";
 var ASSETS_DIR = SCRIPT_DIR + "/C-Bar_assets";
 var BARS_DIR = ASSETS_DIR + "/bars";
 var ICONS_DIR = ASSETS_DIR + "/icons";
+// Icons made by the user (named like a button) and the copies made by C-Bar.
+var CUSTOM_ICONS_DIR = ICONS_DIR + "/customs";
 
 function ensureFolder(path) {
   try {
@@ -102,6 +105,7 @@ function ensureFolder(path) {
 ensureFolder(ASSETS_DIR);
 ensureFolder(BARS_DIR);
 ensureFolder(ICONS_DIR);
+ensureFolder(CUSTOM_ICONS_DIR);
 
 var IS_MAC = String(api.getAppAssetsPath()).indexOf(".app/") !== -1;
 
@@ -273,12 +277,15 @@ function customIconFor(shortcut) {
     names.push(safe);
   }
   for (var i = 0; i < names.length; i++) {
-    var path = ICONS_DIR + "/" + names[i] + ".png";
-    try {
-      if (api.filePathExists(path)) {
-        return path;
-      }
-    } catch (e) {}
+    // icons/customs/, or icons/ itself (where they were before v0.9.6).
+    var paths = [CUSTOM_ICONS_DIR + "/" + names[i] + ".png", ICONS_DIR + "/" + names[i] + ".png"];
+    for (var j = 0; j < paths.length; j++) {
+      try {
+        if (api.filePathExists(paths[j])) {
+          return paths[j];
+        }
+      } catch (e) {}
+    }
   }
   return null;
 }
@@ -369,6 +376,7 @@ function findScriptIcon(scriptPath) {
   var dir = String(scriptPath).replace(/[\/\\][^\/\\]*$/, "");
   var name = fileBaseName(scriptPath);
   var candidates = [
+    CUSTOM_ICONS_DIR + "/" + name + ".png",
     ICONS_DIR + "/" + name + ".png",
     SCRIPT_DIR + "/C Bar_assets/icons/" + name + ".png", // legacy folder (C Bar V / H)
     dir + "/" + name + "_assets/icon.png",
@@ -3692,7 +3700,7 @@ function openKeysDialog(targetId, editUid) {
 // ------------------------------------------------------------
 // shortcut.icon: the button's icon, relative to C-Bar_assets/icons (an icon
 // of the pack, "base/bolt_40px.png", or a copy made by C-Bar,
-// "Null_1730280000000.png"), or one of Cavalry's ("cavalry:nodes/null.png"). shortcut.iconBase: the image it was coloured
+// "customs/Null_1730280000000.png"), or one of Cavalry's ("cavalry:nodes/null.png"). shortcut.iconBase: the image it was coloured
 // from (kept so that colours never degrade); shortcut.iconColor: the colour.
 // C-Bar only ever deletes the copies it made (name ending in _<13 digits>).
 var ICON_PACK_DIR = ICONS_DIR + "/base";
@@ -3704,13 +3712,19 @@ function iconPathFor(name) {
   if (name.indexOf(CAVALRY_ICON_PREFIX) === 0) {
     return api.getAppAssetsPath() + "/Icons/" + name.substr(CAVALRY_ICON_PREFIX.length);
   }
-  return ICONS_DIR + "/" + name;
+  var path = ICONS_DIR + "/" + name;
+  // Copies made before v0.9.6 were in icons/ itself: they may have been
+  // moved to icons/customs/ by hand.
+  if (!/[\/\\]/.test(name) && !api.filePathExists(path) && api.filePathExists(CUSTOM_ICONS_DIR + "/" + name)) {
+    return CUSTOM_ICONS_DIR + "/" + name;
+  }
+  return path;
 }
 var ICON_COLORS = ["White", "Green", "Yellow", "Blue", "Red"];
 var ICON_COLOR_HEX = { White: "#FFFFFF", Green: "#4FFD7A", Yellow: "#FFD84D", Blue: "#4DA6FF", Red: "#FF5A5A" };
 
 function isOwnIconCopy(name) {
-  return !!name && /^[^\/\\]+_\d{13}\.png$/.test(name);
+  return !!name && /^(customs\/)?[^\/\\]+_\d{13}\.png$/.test(name);
 }
 
 // True when another button (any bar) still uses that icon file: a
@@ -3736,7 +3750,7 @@ function iconFileUsedElsewhere(name, barId, uid) {
 function trashOwnIconCopies(names, keep, barId, uid) {
   for (var i = 0; i < names.length; i++) {
     if (isOwnIconCopy(names[i]) && keep.indexOf(names[i]) === -1 && !iconFileUsedElsewhere(names[i], barId, uid)) {
-      moveToTrash(ICONS_DIR + "/" + names[i]);
+      moveToTrash(iconPathFor(names[i]));
     }
   }
 }
@@ -4000,7 +4014,7 @@ function setShortcutIconFile(barId, uid, iconName) {
   logStatus("Icon of " + item.label + ": " + iconName);
 }
 
-// "Other PNG…": the chosen file is copied to C-Bar_assets/icons (a new
+// "Other PNG…": the chosen file is copied to C-Bar_assets/icons/customs (a new
 // name each time, so Cavalry never shows a cached older image).
 function chooseIconFile(barId, uid) {
   var item = findShortcut(barId, uid);
@@ -4009,7 +4023,7 @@ function chooseIconFile(barId, uid) {
   }
   var src = "";
   try {
-    src = aboveSettings(function () { return api.presentOpenFile(ICONS_DIR, "Icon for " + item.label + " (PNG, ideally 40 x 40 px)", "Images (*.png *.PNG)"); });
+    src = aboveSettings(function () { return api.presentOpenFile(CUSTOM_ICONS_DIR, "Icon for " + item.label + " (PNG, ideally 40 x 40 px)", "Images (*.png *.PNG)"); });
   } catch (e) {}
   if (!src) {
     return false;
@@ -4018,12 +4032,12 @@ function chooseIconFile(barId, uid) {
     showMessage("Please choose a PNG file.");
     return false;
   }
-  var name = fileSafeName(item.label) + "_" + Date.now() + ".png";
+  var name = "customs/" + fileSafeName(item.label) + "_" + Date.now() + ".png";
   try {
     api.writeEncodedToBinaryFile(ICONS_DIR + "/" + name, api.encodeBinary(src));
   } catch (e2) {}
   if (!api.filePathExists(ICONS_DIR + "/" + name)) {
-    showMessage("Could not copy the icon to " + ICONS_DIR);
+    showMessage("Could not copy the icon to " + CUSTOM_ICONS_DIR);
     return false;
   }
   setShortcutIconFile(barId, uid, name);
@@ -4058,7 +4072,7 @@ function setShortcutIconColor(barId, uid, color) {
   if (!hex) {
     return;
   }
-  var baseName = item.iconBase && api.filePathExists(ICONS_DIR + "/" + item.iconBase) ? item.iconBase : null;
+  var baseName = item.iconBase && api.filePathExists(iconPathFor(item.iconBase)) ? item.iconBase : null;
   var newBase = null;
   if (!baseName) {
     var shown = resolveIcon(item);
@@ -4070,18 +4084,18 @@ function setShortcutIconColor(barId, uid, color) {
       baseName = String(shown).substr(ICONS_DIR.length + 1);
     } else {
       // An icon from elsewhere (Cavalry, a script folder): copied once.
-      newBase = fileSafeName(item.label) + "_" + Date.now() + ".png";
+      newBase = "customs/" + fileSafeName(item.label) + "_" + Date.now() + ".png";
       try { api.writeEncodedToBinaryFile(ICONS_DIR + "/" + newBase, api.encodeBinary(shown)); } catch (e0) {}
       if (!api.filePathExists(ICONS_DIR + "/" + newBase)) {
-        showMessage("Could not copy the icon to " + ICONS_DIR);
+        showMessage("Could not copy the icon to " + CUSTOM_ICONS_DIR);
         return;
       }
       baseName = newBase;
     }
   }
-  var newName = fileSafeName(item.label) + "_" + (Date.now() + 1) + ".png";
+  var newName = "customs/" + fileSafeName(item.label) + "_" + (Date.now() + 1) + ".png";
   try {
-    tintPng(ICONS_DIR + "/" + baseName, ICONS_DIR + "/" + newName, hex);
+    tintPng(iconPathFor(baseName), ICONS_DIR + "/" + newName, hex);
   } catch (e) {
     showMessage("Could not recolour this icon:\n" + e);
     return;
@@ -6464,7 +6478,7 @@ function openScriptFolder() {
 }
 
 function openIconsFolder() {
-  openFolder(ICONS_DIR);
+  openFolder(CUSTOM_ICONS_DIR);
 }
 
 // ============================================================
