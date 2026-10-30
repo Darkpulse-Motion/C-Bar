@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Download Icon Pack**: *Settings › Update* only replaces `C-Bar.js`, so after an update the icon pack may be missing. *Set Icon…* then shows a **Download Icon Pack** button: C-Bar fetches the pack from GitHub (this version's archive) and adds it to `C-Bar_assets/icons/base/`, without replacing any file.
+
 ## v0.9.6 — 2026-10-30 (beta)
 
 ### Added

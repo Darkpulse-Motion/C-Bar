@@ -34,7 +34,7 @@ Other bars are created from the Settings panel (⚙). Each one gets its own `C-B
 **Settings › Update** checks the latest release on GitHub: its text turns green when a newer version exists. Click it to see the current and new version numbers and confirm; the previous `C-Bar.js` is kept in `C-Bar_assets/backup/`, the other bars are regenerated, then reopen your bars.
 
 To update by hand, replace `C-Bar.js` only. The next time any bar opens, the other `C-Bar_<Name>.js` files are regenerated automatically; reopen the bars that were already open.
-Your bars, rigs and icons live in `C-Bar_assets/` and are never touched by an update.
+Your bars, rigs and icons live in `C-Bar_assets/` and are never touched by an update. If the icon pack is missing after an update, *Set Icon…* offers to download it.
 
 ## Using the bar
 

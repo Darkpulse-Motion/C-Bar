@@ -3773,6 +3773,77 @@ function listPackIcons() {
   return out;
 }
 
+// The icon pack is not brought by Settings › Update (it only replaces
+// C-Bar.js): it can be downloaded from the GitHub archive of this version
+// (or of main), with the system's curl and unzip / tar. Files already in
+// icons/base are never replaced. Returns the number of icons added.
+function downloadIconPack() {
+  var tmp = String(api.getTempFolder()).replace(/[\/\\]+$/, "") + "/cbar_iconpack_" + Date.now();
+  var zip = tmp + "/pack.zip";
+  var winPath = function (p) { return String(p).replace(/\//g, "\\"); };
+  ensureFolder(tmp);
+  logStatus("Downloading the icon pack…");
+  var refs = ["tags/v" + CBAR_VERSION, "heads/main"];
+  var src = null;
+  for (var r = 0; r < refs.length && !src; r++) {
+    var url = "https://github.com/" + CBAR_REPO + "/archive/refs/" + refs[r] + ".zip";
+    try {
+      if (IS_MAC) {
+        api.runProcess("/usr/bin/curl", ["-L", "-f", "-s", "-o", zip, url]);
+        if (api.filePathExists(zip)) {
+          api.runProcess("/usr/bin/unzip", ["-o", "-q", zip, "*/C_Bar/C-Bar_assets/icons/base/*", "-d", tmp]);
+        }
+      } else {
+        api.runProcess("curl.exe", ["-L", "-f", "-s", "-o", winPath(zip), url]);
+        if (api.filePathExists(zip)) {
+          api.runProcess("tar", ["-xf", winPath(zip), "-C", winPath(tmp)]);
+        }
+      }
+    } catch (e) {
+      logStatus("Icon pack download (" + refs[r] + "): " + e);
+    }
+    // The archive holds one folder ("C-Bar-0.9.6", "C-Bar-main").
+    var entries = [];
+    try { entries = api.listDirectory(tmp) || []; } catch (e1) {}
+    for (var i = 0; i < entries.length; i++) {
+      var dir = String(entries[i]) + "/C_Bar/C-Bar_assets/icons/base";
+      if (api.filePathExists(dir)) {
+        src = dir;
+        break;
+      }
+    }
+  }
+  var added = 0;
+  if (src) {
+    ensureFolder(ICON_PACK_DIR);
+    var files = [];
+    try { files = api.listDirectory(src) || []; } catch (e2) {}
+    for (var f = 0; f < files.length; f++) {
+      var name = String(files[f]).split(/[\/\\]/).pop();
+      if (name && name.charAt(0) !== "." && !api.filePathExists(ICON_PACK_DIR + "/" + name)) {
+        try {
+          if (api.copyFilePath(String(files[f]), ICON_PACK_DIR + "/" + name)) {
+            added++;
+          }
+        } catch (e3) {}
+      }
+    }
+  }
+  try {
+    if (IS_MAC) {
+      api.runProcess("/bin/rm", ["-rf", tmp]);
+    } else {
+      api.runProcess("cmd", ["/c", "rmdir", "/s", "/q", winPath(tmp)]);
+    }
+  } catch (e4) {}
+  if (!src) {
+    showMessage("Could not download the icon pack.\nDownload the latest release zip from GitHub and copy its folder C_Bar/C-Bar_assets/icons/base into:\n" + ICONS_DIR);
+    return 0;
+  }
+  logStatus("Icon pack: " + added + " file(s) added to " + ICON_PACK_DIR + ".");
+  return added;
+}
+
 // --- PNG recolouring (pure JavaScript: base64 <-> PNG decode / encode) ---
 // The icon is decoded, every pixel takes the colour times its own
 // brightness (white becomes exactly the colour, greys darker shades), the
@@ -4309,7 +4380,19 @@ function openIconPicker(barId, uid) {
 
   var packLayout = new ui.VLayout();
   packLayout.add(new ui.Label(packIcons.length ? "Click an icon to use it (white: colour it with Icon Colour)." :
-    "No icon pack in " + ICON_PACK_DIR + ": use Other PNG…"));
+    "The icon pack is missing (Settings › Update only replaces C-Bar.js)."));
+  if (!packIcons.length) {
+    var downloadBtn = new ui.Button("Download Icon Pack");
+    downloadBtn.onClick = function () {
+      if (downloadIconPack() > 0) {
+        openIconPicker(barId, uid);
+      }
+    };
+    var downloadRow = new ui.HLayout();
+    downloadRow.add(downloadBtn);
+    downloadRow.addStretch();
+    packLayout.add(downloadRow);
+  }
   packLayout.add(packGrid.scroll);
   packLayout.add(packCount);
   var cavalryLayout = new ui.VLayout();
