@@ -14,3 +14,6 @@ C_Bar/C-Bar_*.js
 *.cbar
 .DS_Store
 Thumbs.db
+
+# Personal instructions for Claude Code (never published)
+CLAUDE.local.md
