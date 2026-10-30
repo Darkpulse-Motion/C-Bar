@@ -83,7 +83,7 @@ SCRIPT_DIR = SCRIPT_DIR.replace(/[\/\\]+$/, "");
 
 // Version of this script. A GitHub Release of the same number (tag
 // "v" + CBAR_VERSION) is what Settings > Update installs.
-var CBAR_VERSION = "0.9.5";
+var CBAR_VERSION = "0.9.6";
 var CBAR_REPO = "Darkpulse-Motion/C-Bar";
 
 var MAIN_SCRIPT = SCRIPT_DIR + "/C-Bar.js";

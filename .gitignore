@@ -14,8 +14,9 @@ C_Bar/C-Bar_assets/backup/
 # Generated bar scripts (one per user bar)
 C_Bar/C-Bar_*.js
 
-# Backups and system files
+# Backups, release zips and system files
 *.cbar
+C-Bar_v*.zip
 .DS_Store
 Thumbs.db
 
