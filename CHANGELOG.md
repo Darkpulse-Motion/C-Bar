@@ -4,6 +4,11 @@
 
 ### Added
 - **Shortcut as Button** (+ › *Add Shortcut as Button…*, idea and first code by Antonin): turns a Cavalry shortcut into a button, to reach commands that scripts cannot run (e.g. *Solo Selection in Viewport*). The window lists Cavalry's shortcuts with a search field, like *Add Node*: double-click one to add it. Any other keys can be typed (`alt+w`, `cmd+shift+d`, `f5`…); on macOS, the keys you gave in the Shortcut Manager to *Enable Time Remapping*, *Set Layer In / Out Point*… are listed too. A click on the button presses the keys in Cavalry's main window. On macOS, Cavalry must be allowed in *System Settings › Privacy & Security › Accessibility*: C-Bar says so when macOS refuses the keys. The button shows the keys on a small tile (or the custom icon `C-Bar_assets/icons/<Button name>.png`), and is edited from *Settings › … › Edit Shortcut as Button…* or from its right-click menu in Organize Layout.
+- **Icons for every button** (Settings › … or right-click in Organize Layout; idea and recolouring code by Antonin):
+  - **Set Icon…** opens a window with the **icon pack** (200 icons from [Tabler Icons](https://tabler.io/icons), MIT, in `C-Bar_assets/icons/base/`), a search field and previews; **Other PNG…** takes your own file.
+  - **Icon Colour**: White, Green, Yellow, Blue, Red or any hex colour. The original image is kept, so colours never degrade; it also works on Cavalry's own node icons.
+  - **Remove Custom Icon**: back to the default icon.
+  - Exported bars carry these icons. *Settings › Update* only replaces `C-Bar.js`: download the release zip once to get the icon pack.
 - Color Array button: **Shift + click with a Color Array selected** (or a layer coloured by one) replaces its colours by those of the active palette of the Color window, instead of creating a new node (idea by Antonin). The node keeps its name and connections, and gets as many entries as the palette; an entry driven by a connection is left as it is.
 
 ## v0.9.5 — 2026-10-23 (beta)

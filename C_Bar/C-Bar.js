@@ -255,6 +255,15 @@ function getPluginIconIndex() {
 // Custom icon: C-Bar_assets/icons/<button name>.png replaces the default
 // icon of that button; without such a file the default icon is kept.
 function customIconFor(shortcut) {
+  // Icon chosen with Set Icon… (see "Button icons").
+  if (shortcut && shortcut.icon) {
+    var own = ICONS_DIR + "/" + shortcut.icon;
+    try {
+      if (api.filePathExists(own)) {
+        return own;
+      }
+    } catch (eOwn) {}
+  }
   if (!shortcut || !shortcut.label) {
     return null;
   }
@@ -3660,6 +3669,564 @@ function openKeysDialog(targetId, editUid) {
   showOnTop(keysDialog);
 }
 
+// ------------------------------------------------------------
+// Button icons: Set Icon, Icon Colour, Remove Custom Icon
+// ------------------------------------------------------------
+// shortcut.icon: the button's icon, relative to C-Bar_assets/icons (an icon
+// of the pack, "base/bolt_40px.png", or a copy made by C-Bar,
+// "Null_1730280000000.png"). shortcut.iconBase: the image it was coloured
+// from (kept so that colours never degrade); shortcut.iconColor: the colour.
+// C-Bar only ever deletes the copies it made (name ending in _<13 digits>).
+var ICON_PACK_DIR = ICONS_DIR + "/base";
+var ICON_COLORS = ["White", "Green", "Yellow", "Blue", "Red"];
+var ICON_COLOR_HEX = { White: "#FFFFFF", Green: "#4FFD7A", Yellow: "#FFD84D", Blue: "#4DA6FF", Red: "#FF5A5A" };
+
+function isOwnIconCopy(name) {
+  return !!name && /^[^\/\\]+_\d{13}\.png$/.test(name);
+}
+
+function trashOwnIconCopies(names, keep) {
+  for (var i = 0; i < names.length; i++) {
+    if (isOwnIconCopy(names[i]) && keep.indexOf(names[i]) === -1) {
+      moveToTrash(ICONS_DIR + "/" + names[i]);
+    }
+  }
+}
+
+// Icons of the pack: [{ name: "bolt", file: "base/bolt_40px.png" }].
+function listPackIcons() {
+  var out = [];
+  var files = [];
+  try { files = api.listDirectory(ICON_PACK_DIR) || []; } catch (e) {}
+  for (var i = 0; i < files.length; i++) {
+    var file = String(files[i]).split(/[\/\\]/).pop();
+    var m = file.match(/^([^_].*?)(_40px)?\.png$/i);
+    if (m) {
+      out.push({ name: m[1], file: "base/" + file });
+    }
+  }
+  out.sort(function (a, b) {
+    return a.name < b.name ? -1 : 1;
+  });
+  return out;
+}
+
+// --- PNG recolouring (pure JavaScript: base64 <-> PNG decode / encode) ---
+// The icon is decoded, every pixel takes the colour times its own
+// brightness (white becomes exactly the colour, greys darker shades), the
+// transparency is kept, and a new PNG is written. Code by Antonin.
+var B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function b64Decode(str) {
+  str = String(str).replace(/[^A-Za-z0-9+\/]/g, "");
+  var out = [], buf = 0, bits = 0;
+  for (var i = 0; i < str.length; i++) {
+    buf = (buf << 6) | B64.indexOf(str.charAt(i)); bits += 6;
+    if (bits >= 8) { bits -= 8; out.push((buf >> bits) & 255); }
+  }
+  return out;
+}
+function b64Encode(bytes) {
+  var s = "", i;
+  for (i = 0; i + 2 < bytes.length; i += 3) {
+    var n = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+    s += B64.charAt((n >> 18) & 63) + B64.charAt((n >> 12) & 63) + B64.charAt((n >> 6) & 63) + B64.charAt(n & 63);
+  }
+  var rest = bytes.length - i;
+  if (rest === 1) {
+    var a = bytes[i] << 16;
+    s += B64.charAt((a >> 18) & 63) + B64.charAt((a >> 12) & 63) + "==";
+  } else if (rest === 2) {
+    var b = (bytes[i] << 16) | (bytes[i + 1] << 8);
+    s += B64.charAt((b >> 18) & 63) + B64.charAt((b >> 12) & 63) + B64.charAt((b >> 6) & 63) + "=";
+  }
+  return s;
+}
+// zlib inflate (RFC 1950 / 1951)
+function pngInflate(data) {
+  var pos = 2, bitBuf = 0, bitCnt = 0, out = [];
+  function bit() { if (!bitCnt) { bitBuf = data[pos++]; bitCnt = 8; } var b = bitBuf & 1; bitBuf >>= 1; bitCnt--; return b; }
+  function bitsN(n) { var v = 0; for (var i = 0; i < n; i++) { v |= bit() << i; } return v; }
+  function build(lengths) {
+    var counts = [], offs = [], syms = [], i;
+    for (i = 0; i < 16; i++) { counts[i] = 0; }
+    for (i = 0; i < lengths.length; i++) { counts[lengths[i]]++; }
+    counts[0] = 0; offs[1] = 0;
+    for (i = 1; i < 16; i++) { offs[i + 1] = offs[i] + counts[i]; }
+    for (i = 0; i < lengths.length; i++) { if (lengths[i]) { syms[offs[lengths[i]]++] = i; } }
+    return { counts: counts, syms: syms };
+  }
+  function decode(h) {
+    var code = 0, first = 0, index = 0;
+    for (var len = 1; len < 16; len++) {
+      code |= bit(); var c = h.counts[len];
+      if (code - c < first) { return h.syms[index + (code - first)]; }
+      index += c; first += c; first <<= 1; code <<= 1;
+    }
+    throw "bad huffman code";
+  }
+  var LB = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258];
+  var LE = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0];
+  var DB = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
+  var DE = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
+  var fixedL = null, fixedD = null, last = 0;
+  do {
+    last = bit();
+    var type = bitsN(2), lit, dist;
+    if (type === 0) {
+      bitCnt = 0;
+      var len = data[pos] | (data[pos + 1] << 8);
+      pos += 4;
+      for (var k = 0; k < len; k++) { out.push(data[pos++]); }
+      continue;
+    }
+    if (type === 1) {
+      if (!fixedL) {
+        var l = [], j;
+        for (j = 0; j < 144; j++) { l[j] = 8; }
+        for (; j < 256; j++) { l[j] = 9; }
+        for (; j < 280; j++) { l[j] = 7; }
+        for (; j < 288; j++) { l[j] = 8; }
+        fixedL = build(l);
+        var d = [];
+        for (j = 0; j < 30; j++) { d[j] = 5; }
+        fixedD = build(d);
+      }
+      lit = fixedL; dist = fixedD;
+    } else if (type === 2) {
+      var hlit = bitsN(5) + 257, hdist = bitsN(5) + 1, hclen = bitsN(4) + 4;
+      var ORD = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15], cl = [], q;
+      for (q = 0; q < 19; q++) { cl[q] = 0; }
+      for (q = 0; q < hclen; q++) { cl[ORD[q]] = bitsN(3); }
+      var ch = build(cl), lens = [];
+      while (lens.length < hlit + hdist) {
+        var sym = decode(ch);
+        if (sym < 16) { lens.push(sym); }
+        else if (sym === 16) { var prev = lens[lens.length - 1], r16 = 3 + bitsN(2); while (r16--) { lens.push(prev); } }
+        else if (sym === 17) { var r17 = 3 + bitsN(3); while (r17--) { lens.push(0); } }
+        else { var r18 = 11 + bitsN(7); while (r18--) { lens.push(0); } }
+      }
+      lit = build(lens.slice(0, hlit)); dist = build(lens.slice(hlit));
+    } else {
+      throw "bad deflate block";
+    }
+    for (;;) {
+      var s = decode(lit);
+      if (s < 256) { out.push(s); }
+      else if (s === 256) { break; }
+      else {
+        s -= 257;
+        var ln = LB[s] + bitsN(LE[s]);
+        var ds = decode(dist);
+        var dd = DB[ds] + bitsN(DE[ds]);
+        var from = out.length - dd;
+        for (var m = 0; m < ln; m++) { out.push(out[from + m]); }
+      }
+    }
+  } while (!last);
+  return out;
+}
+var CRC_T = null;
+function crc32(bytes, start, end) {
+  if (!CRC_T) {
+    CRC_T = [];
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) { c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; }
+      CRC_T[n] = c >>> 0;
+    }
+  }
+  var crc = 0xFFFFFFFF;
+  for (var i = start; i < end; i++) { crc = CRC_T[(crc ^ bytes[i]) & 255] ^ (crc >>> 8); }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+// PNG bytes -> { w, h, px: RGBA bytes }
+function pngDecode(b) {
+  var pos = 8, w = 0, h = 0, depth = 0, ctype = 0, inter = 0, idat = [], pal = null, trns = null;
+  function u32(p) { return ((b[p] << 24) | (b[p + 1] << 16) | (b[p + 2] << 8) | b[p + 3]) >>> 0; }
+  while (pos < b.length) {
+    var len = u32(pos), type = String.fromCharCode(b[pos + 4], b[pos + 5], b[pos + 6], b[pos + 7]), d = pos + 8;
+    if (type === "IHDR") { w = u32(d); h = u32(d + 4); depth = b[d + 8]; ctype = b[d + 9]; inter = b[d + 12]; }
+    else if (type === "PLTE") { pal = b.slice(d, d + len); }
+    else if (type === "tRNS") { trns = b.slice(d, d + len); }
+    else if (type === "IDAT") { for (var i = 0; i < len; i++) { idat.push(b[d + i]); } }
+    else if (type === "IEND") { break; }
+    pos = d + len + 4;
+  }
+  if (depth !== 8 || inter !== 0) {
+    throw "only 8-bit, non-interlaced PNGs can be recoloured (this one: " + depth + "-bit" + (inter ? ", interlaced" : "") + ")";
+  }
+  var ch = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[ctype];
+  if (!ch) {
+    throw "unsupported PNG colour type " + ctype;
+  }
+  var raw = pngInflate(idat), stride = w * ch, px = [], prevLine = [], line, x, y;
+  for (x = 0; x < stride; x++) { prevLine[x] = 0; }
+  var p = 0;
+  for (y = 0; y < h; y++) {
+    var f = raw[p++];
+    line = [];
+    for (x = 0; x < stride; x++) {
+      var v = raw[p++], a = x >= ch ? line[x - ch] : 0, up = prevLine[x], c = x >= ch ? prevLine[x - ch] : 0;
+      if (f === 1) { v += a; } else if (f === 2) { v += up; } else if (f === 3) { v += (a + up) >> 1; }
+      else if (f === 4) { var pp = a + up - c, pa = Math.abs(pp - a), pb = Math.abs(pp - up), pc = Math.abs(pp - c); v += (pa <= pb && pa <= pc) ? a : (pb <= pc ? up : c); }
+      line[x] = v & 255;
+    }
+    for (x = 0; x < w; x++) {
+      var r, g, bl, al = 255, o = x * ch;
+      if (ctype === 6) { r = line[o]; g = line[o + 1]; bl = line[o + 2]; al = line[o + 3]; }
+      else if (ctype === 2) { r = line[o]; g = line[o + 1]; bl = line[o + 2]; }
+      else if (ctype === 0) { r = g = bl = line[o]; if (trns && trns.length >= 2 && line[o] === trns[1]) { al = 0; } }
+      else if (ctype === 4) { r = g = bl = line[o]; al = line[o + 1]; }
+      else { var ix = line[o]; r = pal[ix * 3]; g = pal[ix * 3 + 1]; bl = pal[ix * 3 + 2]; al = trns && ix < trns.length ? trns[ix] : 255; }
+      px.push(r, g, bl, al);
+    }
+    prevLine = line;
+  }
+  return { w: w, h: h, px: px };
+}
+// RGBA -> PNG bytes (zlib "stored" blocks: no compression needed for small icons)
+function pngEncode(w, h, px) {
+  var raw = [], i, y;
+  for (y = 0; y < h; y++) { raw.push(0); for (i = 0; i < w * 4; i++) { raw.push(px[y * w * 4 + i]); } }
+  var z = [0x78, 0x01], a1 = 1, a2 = 0;
+  for (i = 0; i < raw.length; i += 65535) {
+    var n = Math.min(65535, raw.length - i), lastBlock = i + n >= raw.length ? 1 : 0;
+    z.push(lastBlock, n & 255, (n >> 8) & 255, (~n) & 255, ((~n) >> 8) & 255);
+    for (var k = 0; k < n; k++) { var v = raw[i + k]; z.push(v); a1 = (a1 + v) % 65521; a2 = (a2 + a1) % 65521; }
+  }
+  z.push((a2 >> 8) & 255, a2 & 255, (a1 >> 8) & 255, a1 & 255);
+  var out = [137, 80, 78, 71, 13, 10, 26, 10];
+  function chunk(type, data) {
+    var l = data.length;
+    out.push((l >>> 24) & 255, (l >>> 16) & 255, (l >>> 8) & 255, l & 255);
+    var s = out.length;
+    for (var t = 0; t < 4; t++) { out.push(type.charCodeAt(t)); }
+    for (var q = 0; q < l; q++) { out.push(data[q]); }
+    var c = crc32(out, s, out.length);
+    out.push((c >>> 24) & 255, (c >>> 16) & 255, (c >>> 8) & 255, c & 255);
+  }
+  chunk("IHDR", [(w >>> 24) & 255, (w >>> 16) & 255, (w >>> 8) & 255, w & 255, (h >>> 24) & 255, (h >>> 16) & 255, (h >>> 8) & 255, h & 255, 8, 6, 0, 0, 0]);
+  chunk("IDAT", z);
+  chunk("IEND", []);
+  return out;
+}
+// Writes a tinted copy of the PNG srcPath to destPath. hex: "#RRGGBB".
+function tintPng(srcPath, destPath, hex) {
+  var img = pngDecode(b64Decode(api.encodeBinary(srcPath)));
+  var m = String(hex).replace("#", "");
+  var cr = parseInt(m.substr(0, 2), 16), cg = parseInt(m.substr(2, 2), 16), cb = parseInt(m.substr(4, 2), 16);
+  var px = img.px, maxLum = 0, i;
+  // The brightest visible pixel becomes exactly the colour (icons drawn
+  // in light grey are not darkened).
+  for (i = 0; i < px.length; i += 4) {
+    if (px[i + 3] > 0) { maxLum = Math.max(maxLum, px[i] * 0.2126 + px[i + 1] * 0.7152 + px[i + 2] * 0.0722); }
+  }
+  maxLum = maxLum > 0 ? maxLum : 255;
+  for (i = 0; i < px.length; i += 4) {
+    var lum = Math.min(1, (px[i] * 0.2126 + px[i + 1] * 0.7152 + px[i + 2] * 0.0722) / maxLum);
+    px[i] = Math.round(cr * lum); px[i + 1] = Math.round(cg * lum); px[i + 2] = Math.round(cb * lum);
+  }
+  api.writeEncodedToBinaryFile(destPath, b64Encode(pngEncode(img.w, img.h, px)));
+}
+
+function findShortcut(barId, uid) {
+  var list = getBarShortcuts(barId);
+  return list[indexOfUidIn(list, uid)] || null;
+}
+
+// Gives a button an icon (relative to C-Bar_assets/icons), without colour.
+function setShortcutIconFile(barId, uid, iconName) {
+  var item = findShortcut(barId, uid);
+  if (!item) {
+    return;
+  }
+  trashOwnIconCopies([item.icon, item.iconBase], [iconName]);
+  mutateBarShortcuts(barId, function (l) {
+    var idx = indexOfUidIn(l, uid);
+    if (idx !== -1) {
+      l[idx].icon = iconName;
+      l[idx].iconBase = iconName;
+      delete l[idx].iconColor;
+    }
+  });
+  logStatus("Icon of " + item.label + ": " + iconName);
+}
+
+// "Other PNG…": the chosen file is copied to C-Bar_assets/icons (a new
+// name each time, so Cavalry never shows a cached older image).
+function chooseIconFile(barId, uid) {
+  var item = findShortcut(barId, uid);
+  if (!item) {
+    return false;
+  }
+  var src = "";
+  try {
+    src = aboveSettings(function () { return api.presentOpenFile(ICONS_DIR, "Icon for " + item.label + " (PNG, ideally 40 x 40 px)", "Images (*.png *.PNG)"); });
+  } catch (e) {}
+  if (!src) {
+    return false;
+  }
+  if (!/\.png$/i.test(src)) {
+    showMessage("Please choose a PNG file.");
+    return false;
+  }
+  var name = fileSafeName(item.label) + "_" + Date.now() + ".png";
+  try {
+    api.writeEncodedToBinaryFile(ICONS_DIR + "/" + name, api.encodeBinary(src));
+  } catch (e2) {}
+  if (!api.filePathExists(ICONS_DIR + "/" + name)) {
+    showMessage("Could not copy the icon to " + ICONS_DIR);
+    return false;
+  }
+  setShortcutIconFile(barId, uid, name);
+  return true;
+}
+
+// Colours the button's icon: its own (Set Icon) or, failing that, the
+// image it shows (custom icon file, script icon, Cavalry node icon).
+function setShortcutIconColor(barId, uid, color) {
+  var item = findShortcut(barId, uid);
+  if (!item) {
+    return;
+  }
+  var hex = ICON_COLOR_HEX[color];
+  if (color === "Custom") {
+    var cur = item.iconColor && item.iconColor.charAt(0) === "#" ? item.iconColor : "#FFFFFF";
+    var typed = aboveSettings(function () { return new ui.Modal().showStringInput("Icon Colour", "Hex colour (e.g. #FF8800)", cur); });
+    if (!typed) {
+      return;
+    }
+    typed = String(typed).replace(/\s+/g, "");
+    if (typed.charAt(0) !== "#") {
+      typed = "#" + typed;
+    }
+    if (!/^#[0-9a-fA-F]{6}$/.test(typed)) {
+      showMessage("Please type a colour like #FF8800.");
+      return;
+    }
+    hex = typed.toUpperCase();
+    color = hex;
+  }
+  if (!hex) {
+    return;
+  }
+  var baseName = item.iconBase && api.filePathExists(ICONS_DIR + "/" + item.iconBase) ? item.iconBase : null;
+  var newBase = null;
+  if (!baseName) {
+    var shown = resolveIcon(item);
+    if (!shown || !/\.png$/i.test(shown) || !api.filePathExists(shown)) {
+      showMessage("This button has no image to colour: choose one with Set Icon… first.");
+      return;
+    }
+    if (isInFolder(shown, ICONS_DIR)) {
+      baseName = String(shown).substr(ICONS_DIR.length + 1);
+    } else {
+      // An icon from elsewhere (Cavalry, a script folder): copied once.
+      newBase = fileSafeName(item.label) + "_" + Date.now() + ".png";
+      try { api.writeEncodedToBinaryFile(ICONS_DIR + "/" + newBase, api.encodeBinary(shown)); } catch (e0) {}
+      if (!api.filePathExists(ICONS_DIR + "/" + newBase)) {
+        showMessage("Could not copy the icon to " + ICONS_DIR);
+        return;
+      }
+      baseName = newBase;
+    }
+  }
+  var newName = fileSafeName(item.label) + "_" + (Date.now() + 1) + ".png";
+  try {
+    tintPng(ICONS_DIR + "/" + baseName, ICONS_DIR + "/" + newName, hex);
+  } catch (e) {
+    showMessage("Could not recolour this icon:\n" + e);
+    return;
+  }
+  trashOwnIconCopies([item.icon], [baseName, newName]);
+  mutateBarShortcuts(barId, function (l) {
+    var idx = indexOfUidIn(l, uid);
+    if (idx !== -1) {
+      l[idx].icon = newName;
+      l[idx].iconBase = baseName;
+      l[idx].iconColor = color;
+    }
+  });
+  logStatus("Icon colour of " + item.label + ": " + color);
+}
+
+function removeShortcutIcon(barId, uid) {
+  var item = findShortcut(barId, uid);
+  if (!item) {
+    return;
+  }
+  trashOwnIconCopies([item.icon, item.iconBase], []);
+  mutateBarShortcuts(barId, function (l) {
+    var idx = indexOfUidIn(l, uid);
+    if (idx !== -1) {
+      delete l[idx].icon;
+      delete l[idx].iconBase;
+      delete l[idx].iconColor;
+    }
+  });
+  logStatus("Custom icon removed: " + item.label);
+  var labelIcon = customIconFor({ label: item.label });
+  if (labelIcon) {
+    logStatus("The icon " + labelIcon + " still applies to \"" + item.label + "\": delete that file to go back to the default icon.");
+  }
+}
+
+// Menu entries shared by Settings (… menu) and Organize Layout.
+function iconMenuEntries(item) {
+  var out = [{ label: "Set Icon…", id: "icon_set" }];
+  if (item.icon || resolveIcon(item)) {
+    for (var i = 0; i < ICON_COLORS.length; i++) {
+      out.push({ label: (item.iconColor === ICON_COLORS[i] ? "✓ " : "    ") + "Icon Colour: " + ICON_COLORS[i], id: "icolor_" + ICON_COLORS[i] });
+    }
+    var isCustom = item.iconColor && String(item.iconColor).charAt(0) === "#";
+    out.push({ label: (isCustom ? "✓ " : "    ") + "Icon Colour: Custom…" + (isCustom ? " (" + item.iconColor + ")" : ""), id: "icolor_Custom" });
+  }
+  if (item.icon) {
+    out.push({ label: "Remove Custom Icon", id: "icon_remove" });
+  }
+  return out;
+}
+
+// Returns true when actionId was an icon action.
+function runIconMenuAction(barId, uid, actionId) {
+  if (actionId === "icon_set") {
+    openIconPicker(barId, uid);
+  } else if (actionId === "icon_remove") {
+    removeShortcutIcon(barId, uid);
+  } else if (String(actionId).indexOf("icolor_") === 0) {
+    setShortcutIconColor(barId, uid, actionId.substr(7));
+  } else {
+    return false;
+  }
+  return true;
+}
+
+// ------------------------------------------------------------
+// "Set Icon" window: the icon pack, with a search field and previews
+// ------------------------------------------------------------
+// A grid of image buttons (one per icon of the pack). The search shows the
+// matching icons in the first cells and hides the others, so no widget is
+// ever destroyed while the window is open.
+var ICON_GRID_COLUMNS = 8;
+var iconDialog = null;
+
+function openIconPicker(barId, uid) {
+  var item = findShortcut(barId, uid);
+  if (!item) {
+    return;
+  }
+  if (iconDialog) {
+    try { iconDialog.close(); } catch (e0) {}
+    iconDialog = null;
+  }
+  var icons = listPackIcons();
+  var cells = [];
+  var cellIcon = [];
+  var rows = [];
+  var grid = new ui.VLayout();
+  grid.setSpaceBetween(2);
+  for (var r = 0; r * ICON_GRID_COLUMNS < Math.max(icons.length, 1); r++) {
+    var rowLayout = new ui.HLayout();
+    rowLayout.setSpaceBetween(2);
+    rowLayout.setMargins(0, 0, 0, 0);
+    for (var c = 0; c < ICON_GRID_COLUMNS && r * ICON_GRID_COLUMNS + c < icons.length; c++) {
+      (function (k) {
+        var btn = new ui.ImageButton(ICONS_DIR + "/" + icons[k].file);
+        btn.setImageSize(28, 28);
+        btn.setSize(38, 38);
+        btn.setDrawStroke(false);
+        btn.onClick = function () {
+          if (cellIcon[k]) {
+            setShortcutIconFile(barId, uid, cellIcon[k].file);
+            iconDialog.close();
+          }
+        };
+        cells.push(btn);
+        rowLayout.add(btn);
+      })(r * ICON_GRID_COLUMNS + c);
+    }
+    rowLayout.addStretch();
+    var row = new ui.Container();
+    row.setLayout(rowLayout);
+    rows.push(row);
+    grid.add(row);
+  }
+  grid.addStretch();
+
+  function showIcons(filter) {
+    var words = String(filter || "").toLowerCase().replace(/[-_]+/g, " ").split(/\s+/).filter(function (w) { return w.length; });
+    var shown = 0;
+    for (var i = 0; i < icons.length; i++) {
+      var name = icons[i].name.toLowerCase().replace(/[-_]+/g, " ");
+      var ok = true;
+      for (var w = 0; w < words.length; w++) {
+        if (name.indexOf(words[w]) === -1) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) {
+        cells[shown].setImage(ICONS_DIR + "/" + icons[i].file);
+        cells[shown].setToolTip(icons[i].name);
+        cellIcon[shown] = icons[i];
+        shown++;
+      }
+    }
+    for (var j = 0; j < cells.length; j++) {
+      cells[j].setHidden(j >= shown);
+      if (j >= shown) {
+        cellIcon[j] = null;
+      }
+    }
+    for (var q = 0; q < rows.length; q++) {
+      rows[q].setHidden(q * ICON_GRID_COLUMNS >= shown);
+    }
+    countLabel.setText(shown + " / " + icons.length + " icons");
+  }
+
+  var searchField = new ui.LineEdit();
+  searchField.setPlaceholder("Search icons…");
+  searchField.onValueChanged = function () {
+    showIcons(searchField.getText());
+  };
+  var countLabel = new ui.Label("");
+  try { countLabel.setTextColor("#8a8a8a"); } catch (eC) {}
+
+  var scroll = new ui.ScrollView();
+  scroll.setLayout(grid);
+  scroll.setFixedHeight(360);
+
+  var otherBtn = new ui.Button("Other PNG…");
+  otherBtn.onClick = function () {
+    if (chooseIconFile(barId, uid)) {
+      iconDialog.close();
+    }
+  };
+  var closeBtn = new ui.Button("Close");
+  closeBtn.onClick = function () {
+    iconDialog.close();
+  };
+  var buttons = new ui.HLayout();
+  buttons.add(otherBtn);
+  buttons.addStretch();
+  buttons.add(closeBtn);
+
+  var layout = new ui.VLayout();
+  layout.setMargins(8, 8, 8, 8);
+  layout.add(searchField);
+  layout.add(sectionTitle("Icon for \"" + item.label + "\""));
+  layout.add(new ui.Label(icons.length ? "Click an icon to use it (white: colour it with Icon Colour)." :
+    "No icon pack in " + ICON_PACK_DIR + ": use Other PNG…"));
+  layout.add(scroll);
+  layout.add(countLabel);
+  layout.add(buttons);
+  iconDialog = new ui.Container();
+  iconDialog.setMinimumWidth(ICON_GRID_COLUMNS * 40 + 40);
+  iconDialog.setLayout(layout);
+  showIcons("");
+  showOnTop(iconDialog);
+}
+
 function createToolbarButton(shortcut) {
   if (shortcut.kind === "keys" && !customIconFor(shortcut)) {
     return createKeysTile(shortcut);
@@ -4194,6 +4761,32 @@ function showEditCellMenu(shortcut) {
   ui.addMenuItem({ name: "" });
   if (shortcut.kind === "keys") {
     ui.addMenuItem({ name: "Edit Shortcut as Button…", onMouseRelease: function () { openKeysDialog(currentBar.id, uid); } });
+    ui.addMenuItem({ name: "" });
+  }
+  if (shortcut.kind !== "spacer") {
+    var iconEntries = iconMenuEntries(shortcut);
+    var colours = null;
+    for (var ie = 0; ie < iconEntries.length; ie++) {
+      (function (entry) {
+        var item = { name: entry.label.replace(/^\s+/, "").replace(/^(✓ )?Icon Colour: /, "$1"),
+          onMouseRelease: function () { runIconMenuAction(currentBar.id, uid, entry.id); } };
+        if (entry.id.indexOf("icolor_") === 0) {
+          if (!colours) {
+            colours = new ui.Menu("Icon Colour");
+          }
+          colours.addMenuItem(item);
+        } else {
+          if (entry.id === "icon_remove" && colours) {
+            ui.addSubMenu(colours);
+            colours = null;
+          }
+          ui.addMenuItem(item);
+        }
+      })(iconEntries[ie]);
+    }
+    if (colours) {
+      ui.addSubMenu(colours);
+    }
     ui.addMenuItem({ name: "" });
   }
   ui.addMenuItem({ name: "Delete", onMouseRelease: function () { deleteShortcut(uid); } });
@@ -5154,6 +5747,10 @@ function openManager() {
         items.push({ label: "Edit Shortcut as Button…", id: "keys_edit" });
         items.push({ separator: true });
       }
+      if (i0 !== -1 && l0[i0].kind !== "spacer") {
+        items = items.concat(iconMenuEntries(l0[i0]));
+        items.push({ separator: true });
+      }
       var page0 = i0 !== -1 ? pageOf(l0[i0]) : 0;
       for (var p = 1; p <= PAGE_COUNT; p++) {
         if (p !== page0) {
@@ -5169,6 +5766,9 @@ function openManager() {
       }
       if (actionId === "keys_edit") {
         openKeysDialog(editedBarId, uid);
+        return;
+      }
+      if (runIconMenuAction(editedBarId, uid, actionId)) {
         return;
       }
       if (actionId.indexOf("page_") !== 0) {
@@ -5484,7 +6084,8 @@ function exportBar(id) {
     var icon = null;
     try { icon = resolveIcon(s); } catch (e2) {}
     if (icon && isInFolder(icon, ICONS_DIR)) {
-      var iconName = String(icon).split(/[\/\\]/).pop();
+      // Relative to the icons folder: "Null.png", "base/bolt_40px.png".
+      var iconName = String(icon).substr(ICONS_DIR.length + 1).replace(/\\/g, "/");
       if (!pack.icons[iconName]) {
         try { pack.icons[iconName] = api.encodeBinary(icon); } catch (e3) {}
       }
@@ -5580,8 +6181,14 @@ function importBar() {
 
   // Icons: added to C-Bar_assets/icons when missing.
   for (var iconName in (pack.icons || {})) {
+    if (/(^|\/)\.\.(\/|$)/.test(iconName)) {
+      continue;
+    }
     var iconPath = ICONS_DIR + "/" + iconName;
     if (!api.filePathExists(iconPath)) {
+      if (iconName.indexOf("/") !== -1) {
+        ensureFolder(iconPath.replace(/\/[^\/]+$/, ""));
+      }
       try { api.writeEncodedToBinaryFile(iconPath, pack.icons[iconName]); } catch (e3) {}
     }
   }
@@ -6694,7 +7301,7 @@ function showAddMenu(targetId) {
 var hiddenWhileInactive = [];
 
 function secondaryWindows() {
-  return [managerContainer, pickerContainer, exprDialog, keysDialog, rigDialog, barDialog, configDialog, aboutDialog];
+  return [managerContainer, pickerContainer, exprDialog, keysDialog, iconDialog, rigDialog, barDialog, configDialog, aboutDialog];
 }
 
 function onCavalryActiveChanged(state) {

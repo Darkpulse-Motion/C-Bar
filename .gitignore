@@ -2,6 +2,7 @@
 C_Bar/C-Bar_assets/bars/*
 C_Bar/C-Bar_assets/rigs/*
 C_Bar/C-Bar_assets/icons/*
+!C_Bar/C-Bar_assets/icons/base/
 C_Bar/C-Bar_assets/scripts/*
 C_Bar/C-Bar_assets/_deleted/
 C_Bar/C-Bar_assets/backup/

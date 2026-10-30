@@ -4,13 +4,13 @@ C-Bar is a customisable toolbar for **Cavalry 2.x** (scripting UI), in the spiri
 
 ## Code layout
 - One code file: `C_Bar/C-Bar.js` (the "Default" bar). Every other bar is a generated `C-Bar_<Name>.js`: a copy of `C-Bar.js` where **only the first line** (`var CBAR_ID = "..."`) changes. These copies are regenerated automatically when any bar opens — never edit them, never commit them.
-- User data lives in `C_Bar/C-Bar_assets/` (`bars/`, `rigs/`, `icons/`, `scripts/`, `backup/`) and is **never committed** (see `.gitignore`).
+- User data lives in `C_Bar/C-Bar_assets/` (`bars/`, `rigs/`, `icons/`, `scripts/`, `backup/`) and is **never committed** (see `.gitignore`). Exception: the icon pack `C-Bar_assets/icons/base/` (Tabler Icons, MIT, 40 px PNGs) is part of the repository.
 - `CBAR_VERSION` (near the top of `C-Bar.js`) is the version that *Settings › Update* compares with the latest GitHub Release.
 
 ## Coding rules
 - Cavalry's JavaScript engine: **ES5 only** — `var` (no `let` / `const`), no arrow functions, no template literals.
 - The UI of the script is in **English**.
-- No new icon files: use Cavalry's own icons, or custom icons the user drops in `C-Bar_assets/icons/<Button name>.png`.
+- No new icon files in the code: use Cavalry's own icons, the pack in `C-Bar_assets/icons/base/`, or custom icons the user drops in `C-Bar_assets/icons/`.
 - Check syntax before committing: `node --check C_Bar/C-Bar.js`.
 
 ## Workflow
@@ -20,7 +20,7 @@ C-Bar is a customisable toolbar for **Cavalry 2.x** (scripting UI), in the spiri
 ## Releasing
 1. Set `CBAR_VERSION` and rename `## Unreleased` in the CHANGELOG to `## v0.x.y — YYYY-MM-DD (beta)`.
 2. Commit `Release v0.x.y (beta)` and push to `main`.
-3. Zip: the `C_Bar` folder (with empty `C-Bar_assets/{bars,rigs,icons,scripts}`) + README, CHANGELOG, LICENSE → `C-Bar_v0.x.y-beta.zip`.
+3. Zip: the `C_Bar` folder (with empty `C-Bar_assets/{bars,rigs,scripts}`, and `C-Bar_assets/icons/` holding only the `base/` pack) + README, CHANGELOG, LICENSE → `C-Bar_v0.x.y-beta.zip`.
 4. GitHub Release: tag `v0.x.y` on `main`, title `C-Bar v0.x.y (beta)`, zip attached, label **None** (a pre-release is ignored by *Update*), **Set as the latest release** checked.
 
 ## Cavalry scripting pitfalls (learnt the hard way)

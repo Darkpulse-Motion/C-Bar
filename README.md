@@ -16,7 +16,8 @@ Build your own bars of shortcuts — nodes, scripts, expressions, rigs and Shelf
 - **4 pages** per bar: put each shortcut on page 1, 2, 3 or 4 and switch with the page selector at the end of the bar.
 - **Settings panel**: reorder (multi-selection), rename, move to another page, add spacers, manage bars.
 - **Share**: export / import a single bar (with its rigs, scripts and icons) or the whole configuration.
-- **Custom icons**: drop `<Button name>.png` in `C-Bar_assets/icons/`.
+- **Shortcut as Button**: turn any Cavalry shortcut into a button (searchable list of Cavalry's shortcuts).
+- **Icons**: pick one of the 200 icons of the built-in pack (search with previews) or your own PNG, and colour it.
 
 ## Installation
 
@@ -40,7 +41,7 @@ Your bars, rigs and icons live in `C-Bar_assets/` and are never touched by an up
 | Button | Action |
 |---|---|
 | Shortcut | Click: create / run it. Alt + click: see below. |
-| **+** | Add a node or script, the selected layer (favourite: a snapshot with its values, expressions, keyframes and internal links), the selected layer as a rig, an expression, a spacer. |
+| **+** | Add a node or script, the selected layer (favourite: a snapshot with its values, expressions, keyframes and internal links), the selected layer as a rig, an expression, a Cavalry shortcut as a button, a spacer. |
 | **⚙** | Settings panel. |
 | **1 2 3 4** | Page selector: show that page (the number of the current one is green). The bar opens on page 1. New shortcuts go to the page shown. |
 
@@ -55,7 +56,7 @@ With a layer (or an attribute) selected when you click a shortcut:
 | **Behaviours** (Oscillator, Noise, Align…) and path behaviours (Subdivide, Clean Up, Resample Path…) | Added to the layer's Deformers, parented, named `Layer_Node`. |
 | **Filters** (Alt + click) | Added to the layer's Filters, parented, named `Layer_Filter`. |
 | **Colour utilities** (Color Blend, Contrasting Color…) | Connected to the layer's Fill, parented, named `Layer_Node`. |
-| **Color Array** | Click: connected to the Fill (starting with its current colour). Shift + click: built from the active palette of the Color window. |
+| **Color Array** | Click: connected to the Fill (starting with its current colour). Shift + click: built from the active palette of the Color window; with a Color Array selected (or a layer coloured by one), its colours are replaced by the palette's instead. |
 | **Duplicator**, Extrude | Selected layers added to Input Shapes and parented; named `Duplicator_Layer`. |
 | **Custom Shape** | Selected layer as Input Shape; named `Custom_Layer`. |
 | Sub-Mesh Bounding Box, Extract Sub-Meshes | Selected layer as Input Shape. |
@@ -69,7 +70,7 @@ Hold the mouse **1.5 seconds** on an empty part of the bar (or on a page button)
 
 - **drag** a shortcut and drop it on another one to take its place;
 - drop it on **1 2 3 4** to move it to that page;
-- **right-click** a shortcut: *Move Up / Down* (vertical bar) or *Move Left / Right* (horizontal bar), *Move to Page 1–4*, *Delete*;
+- **right-click** a shortcut: *Move Up / Down* (vertical bar) or *Move Left / Right* (horizontal bar), *Move to Page 1–4*, *Set Icon…*, *Icon Colour*, *Delete*;
 - the dotted **+** adds a spacer at the end of the page (spacers show a dotted frame);
 - the green **✓** or right-click › *Done Organizing Layout* leaves the mode (a long press only enters it).
 
@@ -77,21 +78,28 @@ Hold the mouse **1.5 seconds** on an empty part of the bar (or on a page button)
 
 Add one with **+ › Add Expression…**. Click applies it to the selected attribute(s); Alt + click lets you pick the attribute of the selected layer.
 
+### Shortcut as Button
+
+**+ › Add Shortcut as Button…** lists Cavalry's shortcuts (search, double-click to add), or takes keys typed by hand (`alt+w`, `cmd+shift+d`…). A click on the button presses those keys in Cavalry — handy for commands that scripts cannot run, such as *Solo Selection in Viewport*. On macOS, allow Cavalry in *System Settings › Privacy & Security › Accessibility* (C-Bar tells you when it is needed).
+
 ### Rigs
 
 Select a layer and use **+ › Add Selected Layers as Rig…**. Choose what to include (children, connected layers, expressions, keyframes, labels) and give it a name and description. The rig button recreates it in the active composition, just under the selected layer.
 
 ### Settings panel (⚙)
 
-- **Shortcuts** of the bar selected below: drag to reorder (Shift / Cmd for several), double-click to rename, **…** to move to another page or edit an expression. The **1 2 3 4** selector above the list chooses the page shown.
+- **Shortcuts** of the bar selected below: drag to reorder (Shift / Cmd for several), double-click to rename, **…** to move to another page, edit an expression or a Shortcut as Button, or set the icon. The **1 2 3 4** selector above the list chooses the page shown.
 - **Add…**, **Spacer**, **Reset / Clear Bar**, **Hide page selector** (off by default).
 - **Bars**: click to edit, double-click to open, **…** for Open, Duplicate, Rename, Switch to Vertical / Horizontal, Export Bar, Delete.
 - **?**: credits, version and a link to this page.
 - **Bar…**: New Bar…, Import Bar…, Export Bar… (the bar selected in the list), Update Bars. **Config…**: Config Import, Config Export, Open Folder.
 
-### Custom icons
+### Icons
 
-Put a PNG named exactly like the button in `C-Bar_assets/icons/` — e.g. `Value x -1.png`. Without such a file the default icon is used.
+- **Set Icon…** (Settings › **…**, or right-click in Organize Layout): a window with the 200 icons of the pack, a search field and previews; click one to use it. **Other PNG…** takes your own file (ideally 40 × 40 px).
+- **Icon Colour**: White, Green, Yellow, Blue, Red or any hex colour. The original image is kept, so colours never degrade.
+- **Remove Custom Icon**: back to the default icon.
+- You can still put a PNG named exactly like the button in `C-Bar_assets/icons/` — e.g. `Value x -1.png`.
 
 ## Folder structure
 
@@ -103,6 +111,7 @@ C_Bar/
     ├── bars/                 ← one JSON per bar (your shortcuts)
     ├── rigs/                 ← saved rigs
     ├── icons/                ← custom icons
+    │   └── base/             ← icon pack (Tabler Icons)
     └── scripts/              ← scripts imported with a bar
 ```
 
@@ -128,6 +137,8 @@ Bug reports and ideas are welcome in the **Issues** tab: describe what you did, 
 ## License
 
 [MIT](LICENSE)
+
+The icon pack in `C-Bar_assets/icons/base/` comes from [Tabler Icons](https://tabler.io/icons) (MIT, © Paweł Kuna — see `_LICENSE-tabler.txt`).
 
 ## Special thanks
 
