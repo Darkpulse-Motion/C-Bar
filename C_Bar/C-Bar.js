@@ -3522,17 +3522,35 @@ function keysFromCavalry(str) {
   return out.join("+");
 }
 
+// Cavalry's shortcuts.json (the keys changed in the Shortcut Manager), or null.
+function cavalryShortcutsFile() {
+  var candidates = [];
+  try { candidates.push(String(api.getPreferencesPath()).replace(/[\/\\]+$/, "") + "/shortcuts.json"); } catch (e) {}
+  var home = IS_MAC ? (String(getScriptsRoot()).match(/^(\/Users\/[^\/]+)/) || [])[1] : null;
+  if (home) {
+    candidates.push(home + "/Library/Preferences/Cavalry/shortcuts.json");
+  }
+  for (var i = 0; i < candidates.length; i++) {
+    try {
+      if (api.filePathExists(candidates[i])) {
+        return candidates[i];
+      }
+    } catch (e2) {}
+  }
+  return null;
+}
+
 // [{ label, keys }], sorted: the list above, plus the keys the user gave
-// to the commands of CAVALRY_ACTIONS (macOS: read from shortcuts.json).
+// to the commands of CAVALRY_ACTIONS (read from shortcuts.json).
 function cavalryShortcutList() {
   var out = [];
   for (var i = 0; i < CAVALRY_SHORTCUTS.length; i++) {
     out.push({ label: CAVALRY_SHORTCUTS[i][0], keys: CAVALRY_SHORTCUTS[i][1] });
   }
-  var home = IS_MAC ? (String(getScriptsRoot()).match(/^(\/Users\/[^\/]+)/) || [])[1] : null;
-  if (home) {
+  var file = cavalryShortcutsFile();
+  if (file) {
     try {
-      var own = JSON.parse(api.readFromFile(home + "/Library/Preferences/Cavalry/shortcuts.json")).shortcuts || {};
+      var own = JSON.parse(api.readFromFile(file)).shortcuts || {};
       for (var a in CAVALRY_ACTIONS) {
         if (CAVALRY_ACTIONS.hasOwnProperty(a) && own[a] && parseKeys(keysFromCavalry(own[a]))) {
           out.push({ label: CAVALRY_ACTIONS[a], keys: keysFromCavalry(own[a]) });
@@ -3695,9 +3713,29 @@ function isOwnIconCopy(name) {
   return !!name && /^[^\/\\]+_\d{13}\.png$/.test(name);
 }
 
-function trashOwnIconCopies(names, keep) {
+// True when another button (any bar) still uses that icon file: a
+// duplicated or imported bar shares the copies of the original.
+function iconFileUsedElsewhere(name, barId, uid) {
+  var bars = listBars();
+  for (var b = 0; b < bars.length; b++) {
+    var list = bars[b].id === currentBar.id ? nodeShortcuts : (bars[b].shortcuts || []);
+    for (var i = 0; i < list.length; i++) {
+      if (bars[b].id === barId && list[i].uid === uid) {
+        continue;
+      }
+      if (list[i].icon === name || list[i].iconBase === name) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Trashes the copies C-Bar made for the button barId / uid, except keep
+// and those another button still uses.
+function trashOwnIconCopies(names, keep, barId, uid) {
   for (var i = 0; i < names.length; i++) {
-    if (isOwnIconCopy(names[i]) && keep.indexOf(names[i]) === -1) {
+    if (isOwnIconCopy(names[i]) && keep.indexOf(names[i]) === -1 && !iconFileUsedElsewhere(names[i], barId, uid)) {
       moveToTrash(ICONS_DIR + "/" + names[i]);
     }
   }
@@ -3950,7 +3988,7 @@ function setShortcutIconFile(barId, uid, iconName) {
   if (!item) {
     return;
   }
-  trashOwnIconCopies([item.icon, item.iconBase], [iconName]);
+  trashOwnIconCopies([item.icon, item.iconBase], [iconName], barId, uid);
   mutateBarShortcuts(barId, function (l) {
     var idx = indexOfUidIn(l, uid);
     if (idx !== -1) {
@@ -4048,7 +4086,7 @@ function setShortcutIconColor(barId, uid, color) {
     showMessage("Could not recolour this icon:\n" + e);
     return;
   }
-  trashOwnIconCopies([item.icon], [baseName, newName]);
+  trashOwnIconCopies([item.icon], [baseName, newName], barId, uid);
   mutateBarShortcuts(barId, function (l) {
     var idx = indexOfUidIn(l, uid);
     if (idx !== -1) {
@@ -4065,7 +4103,7 @@ function removeShortcutIcon(barId, uid) {
   if (!item) {
     return;
   }
-  trashOwnIconCopies([item.icon, item.iconBase], []);
+  trashOwnIconCopies([item.icon, item.iconBase], [], barId, uid);
   mutateBarShortcuts(barId, function (l) {
     var idx = indexOfUidIn(l, uid);
     if (idx !== -1) {
