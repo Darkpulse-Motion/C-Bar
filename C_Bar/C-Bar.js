@@ -1768,6 +1768,10 @@ function createNode(shortcut, forcedTarget) {
     runLayoutShortcut(shortcut);
     return;
   }
+  if (shortcut.kind === "keys") {
+    sendKeys(shortcut);
+    return;
+  }
   if (shortcut.preset) {
     createFromFavorite(shortcut, forcedTarget);
     return;
@@ -3001,7 +3005,7 @@ function guessCategory(type, displayName) {
 }
 
 function getShortcutCategory(s) {
-  if (s.kind === "spacer" || s.kind === "expression" || s.kind === "rig" || s.kind === "script") {
+  if (s.kind === "spacer" || s.kind === "expression" || s.kind === "rig" || s.kind === "script" || s.kind === "keys") {
     return s.kind;
   }
   return guessCategory(s.type || s.nodeName, s.label);
@@ -3111,7 +3115,458 @@ function createExpressionTile(shortcut, tip) {
   return d;
 }
 
+// ------------------------------------------------------------
+// "Shortcut as Button" (kind "keys")
+// ------------------------------------------------------------
+// A "keys" button plays a key combination ("alt+w", "alt+shift+w",
+// "cmd+d"…) as if it was typed: Cavalry has no API to run its menu
+// commands, so the keys are sent by the system (macOS: System Events,
+// which needs Cavalry in System Settings > Privacy & Security >
+// Accessibility; Windows: SendKeys). The keys go where the focus is,
+// exactly like the keyboard.
+var KEY_MODS = {
+  cmd: "cmd", command: "cmd", "⌘": "cmd", meta: "cmd", win: "cmd",
+  ctrl: "ctrl", control: "ctrl", "⌃": "ctrl",
+  alt: "alt", option: "alt", opt: "alt", "⌥": "alt",
+  shift: "shift", "⇧": "shift"
+};
+// macOS key codes of the keys that are not plain characters.
+var MAC_KEY_CODES = {
+  "return": 36, enter: 76, tab: 48, space: 49, "delete": 51, backspace: 51, del: 117, forwarddelete: 117,
+  escape: 53, esc: 53, left: 123, right: 124, down: 125, up: 126, home: 115, end: 119, pageup: 116, pagedown: 121,
+  f1: 122, f2: 120, f3: 99, f4: 118, f5: 96, f6: 97, f7: 98, f8: 100, f9: 101, f10: 109, f11: 103, f12: 111,
+  f13: 105, f14: 107, f15: 113, f16: 106, f17: 64, f18: 79, f19: 80
+};
+var WIN_KEY_NAMES = {
+  "return": "{ENTER}", enter: "{ENTER}", tab: "{TAB}", space: " ", "delete": "{BACKSPACE}", backspace: "{BACKSPACE}",
+  del: "{DELETE}", forwarddelete: "{DELETE}", escape: "{ESC}", esc: "{ESC}", left: "{LEFT}", right: "{RIGHT}",
+  down: "{DOWN}", up: "{UP}", home: "{HOME}", end: "{END}", pageup: "{PGUP}", pagedown: "{PGDN}"
+};
+
+// "alt+shift+w" -> { mods: ["alt", "shift"], key: "w" } (null if invalid).
+function parseKeys(str) {
+  var parts = String(str || "").replace(/\s+/g, "").toLowerCase().split("+");
+  var mods = [];
+  var key = null;
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i];
+    if (!p && i === parts.length - 1 && parts.length > 1) { // "cmd++"
+      key = "+";
+      continue;
+    }
+    if (!p) {
+      continue;
+    }
+    if (KEY_MODS[p]) {
+      if (mods.indexOf(KEY_MODS[p]) === -1) {
+        mods.push(KEY_MODS[p]);
+      }
+    } else {
+      key = p;
+    }
+  }
+  if (!key) {
+    return null;
+  }
+  if (key.length > 1 && MAC_KEY_CODES[key] === undefined) {
+    return null;
+  }
+  return { mods: mods, key: key };
+}
+
+// Readable form: macOS symbols ("⌥⇧W"), "Ctrl+Alt+W" elsewhere.
+function prettyKeys(str) {
+  var k = parseKeys(str);
+  if (!k) {
+    return String(str || "");
+  }
+  var order = ["ctrl", "alt", "shift", "cmd"];
+  var macNames = { ctrl: "⌃", alt: "⌥", shift: "⇧", cmd: "⌘" };
+  var winNames = { ctrl: "Win", alt: "Alt", shift: "Shift", cmd: "Ctrl" }; // Cavalry's Ctrl is ⌘ on macOS
+  var key = k.key.length === 1 ? k.key.toUpperCase() : k.key.charAt(0).toUpperCase() + k.key.substr(1);
+  var out = [];
+  for (var i = 0; i < order.length; i++) {
+    if (k.mods.indexOf(order[i]) !== -1) {
+      out.push(IS_MAC ? macNames[order[i]] : winNames[order[i]]);
+    }
+  }
+  return IS_MAC ? out.join("") + key : out.concat([key]).join("+");
+}
+
+// Short text for the tile: "A W", "AS W", "C D"…
+function keysTileText(str) {
+  var k = parseKeys(str);
+  if (!k) {
+    return "?";
+  }
+  var m = "";
+  if (k.mods.indexOf("ctrl") !== -1) { m += "^"; }
+  if (k.mods.indexOf("alt") !== -1) { m += "A"; }
+  if (k.mods.indexOf("shift") !== -1) { m += "S"; }
+  if (k.mods.indexOf("cmd") !== -1) { m += "C"; }
+  var key = k.key.length === 1 ? k.key.toUpperCase() : k.key.substr(0, 3).toUpperCase();
+  return m ? m + " " + key : key;
+}
+
+var KEYS_LOG = (function () {
+  try {
+    return String(api.getTempFolder()).replace(/[\/\\]+$/, "") + "/cbar_keys.log";
+  } catch (e) {
+    return "/tmp/cbar_keys.log";
+  }
+})();
+
+function shQuote(s) {
+  return "'" + String(s).replace(/'/g, "'\\''") + "'";
+}
+
+// Reads the log of the last key sending a moment later: shows the
+// reason when macOS refused it (usually the Accessibility permission).
+var keysLogTimer = null;
+function checkKeysLogSoon() {
+  try {
+    if (!keysLogTimer) {
+      keysLogTimer = new api.Timer({
+        onTimeout: function () {
+          var txt = "";
+          try { txt = api.filePathExists(KEYS_LOG) ? String(api.readFromFile(KEYS_LOG) || "") : ""; } catch (e) {}
+          if (!txt.replace(/\s+/g, "")) {
+            return;
+          }
+          if (/1002|not allowed|n.est pas autoris|assistive|accessibilit/i.test(txt)) {
+            showMessage("macOS refused to send the keys.\nAdd Cavalry in System Settings > Privacy & Security > Accessibility (switch it on), then restart Cavalry.\n\n" + txt);
+          } else {
+            showMessage("The keys could not be sent:\n" + txt);
+          }
+        }
+      });
+      keysLogTimer.setRepeating(false);
+    }
+    keysLogTimer.setInterval(1500);
+    keysLogTimer.start();
+  } catch (e) {}
+}
+
+function sendKeys(shortcut) {
+  var k = parseKeys(shortcut.keys);
+  if (!k) {
+    showMessage("Invalid shortcut: \"" + shortcut.keys + "\".\nExamples: alt+w, alt+shift+w, cmd+d, ctrl+shift+left");
+    return;
+  }
+  try {
+    if (IS_MAC) {
+      var names = { cmd: "command down", ctrl: "control down", alt: "option down", shift: "shift down" };
+      var using = [];
+      for (var i = 0; i < k.mods.length; i++) {
+        using.push(names[k.mods[i]]);
+      }
+      var press = MAC_KEY_CODES[k.key] !== undefined ? "key code " + MAC_KEY_CODES[k.key] :
+        "keystroke \"" + k.key.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
+      if (using.length) {
+        press += " using {" + using.join(", ") + "}";
+      }
+      // The keys must reach Cavalry's main window, not the floating bar
+      // that was just clicked: the biggest window of Cavalry is raised
+      // first. Errors are written to a log that is read a moment later.
+      var script = [
+        "delay 0.1",
+        "tell application \"System Events\"",
+        "  set p to first application process whose frontmost is true",
+        "  set best to missing value",
+        "  set bestArea to 0",
+        "  repeat with w in (windows of p)",
+        "    try",
+        "      set s to size of w",
+        "      set a to (item 1 of s) * (item 2 of s)",
+        "      if a > bestArea then",
+        "        set bestArea to a",
+        "        set best to w",
+        "      end if",
+        "    end try",
+        "  end repeat",
+        "  if best is not missing value then perform action \"AXRaise\" of best",
+        "  delay 0.05",
+        "  " + press,
+        "end tell"
+      ].join("\n");
+      try { api.writeToFile(KEYS_LOG, "", true); } catch (eW) {}
+      var cmd = "/usr/bin/osascript -e " + shQuote(script) + " > /dev/null 2> " + shQuote(KEYS_LOG);
+      api.runDetachedProcess("/bin/sh", ["-c", cmd]);
+      checkKeysLogSoon();
+    } else {
+      var winMods = { cmd: "^", alt: "%", shift: "+" }; // cmd = Ctrl on Windows
+      var pre = "";
+      for (var j = 0; j < k.mods.length; j++) {
+        if (winMods[k.mods[j]]) {
+          pre += winMods[k.mods[j]];
+        }
+      }
+      var key = WIN_KEY_NAMES[k.key] || (/^f([1-9]|1[0-6])$/.test(k.key) ? "{" + k.key.toUpperCase() + "}" :
+        (/[+^%~(){}\[\]]/.test(k.key) ? "{" + k.key + "}" : k.key));
+      var ps = "Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; " +
+        "[System.Windows.Forms.SendKeys]::SendWait('" + (pre + key).replace(/'/g, "''") + "')";
+      api.runDetachedProcess("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", ps]);
+    }
+    logStatus("Keys sent: " + prettyKeys(shortcut.keys) + (shortcut.label ? " (" + shortcut.label + ")" : ""));
+  } catch (e) {
+    logStatus("Could not send the keys " + shortcut.keys + ": " + e);
+  }
+}
+
+function keysTooltip(shortcut) {
+  return "Cavalry shortcut: " + shortcut.label + "\n" + prettyKeys(shortcut.keys) +
+    "\nClick: plays the keys (they go where the focus is, like the keyboard)";
+}
+
+function createKeysTile(shortcut) {
+  var size = 26;
+  var d = new ui.Draw();
+  d.setSize(size, size);
+  try { d.setBackgroundColor(ui.getThemeColor("Window")); } catch (e) {}
+  var bg = new cavalry.Path();
+  bg.addRect(2, 2, size - 2, size - 2); // addRect(fromX, fromY, toX, toY)
+  d.addPath(bg.toObject(), { color: "#2f6a7a" });
+  var txt = new cavalry.Path();
+  txt.addText(keysTileText(shortcut.keys), 8, 0, 0);
+  var bb = txt.boundingBox();
+  if (bb.width > size - 6) {
+    var sc = (size - 6) / bb.width;
+    txt.scale(sc, sc);
+    bb = txt.boundingBox();
+  }
+  txt.translate(size / 2 - bb.centre.x, size / 2 - bb.centre.y);
+  d.addPath(txt.toObject(), { color: "#ffffff" });
+  d.setToolTip(keysTooltip(shortcut));
+  d.onMousePress = function (position, button) {
+    if (button === "left") {
+      sendKeys(shortcut);
+    } else if (button === "right") {
+      showBarMenu();
+    }
+  };
+  return d;
+}
+
+// ------------------------------------------------------------
+// Cavalry's shortcuts (list of the "Shortcut as Button" window)
+// ------------------------------------------------------------
+// Default keys of Cavalry 2.x, from its Shortcut Manager and its docs
+// (scripts cannot read them). Keys as typed in the window: cmd is Cavalry's
+// "Ctrl" (⌘ on macOS, Ctrl on Windows), ctrl is ⌃ on macOS.
+var CAVALRY_SHORTCUTS = [
+  ["Add Null", "cmd+shift+="], ["Add Time Marker", "cmd+*"],
+  ["Arrange > Bring Forward", "cmd+]"], ["Arrange > Bring to Front", "cmd+shift+]"],
+  ["Arrange > Send Backward", "cmd+["], ["Arrange > Send to Back", "cmd+shift+["],
+  ["Attribute Editor", "alt+a"], ["Background", "cmd+y"], ["Bake Selected Shape", "cmd+shift+b"],
+  ["Camera", "cmd+m"], ["Camera Tool", "c"], ["Clear Quicklist", "alt+shift+w"],
+  ["Close Composition", "cmd+w"], ["Close Other Compositions", "alt+cmd+w"], ["Color Window", "alt+c"],
+  ["Command Search", "/"], ["Command Search (Quick Actions Only)", "alt+/"],
+  ["Composition Settings…", "cmd+k"], ["Control Centre", "alt+e"],
+  ["Duplicate", "cmd+d"], ["Duplicate (Options)…", "cmd+shift+d"], ["Duplicate and Split", "ctrl+d"],
+  ["Edit Shape Tool", "a"], ["Export Lottie…", "alt+cmd+l"],
+  ["Go to Composition End", "cmd+end"], ["Go to Composition Start", "cmd+home"],
+  ["Go to Next Keyframe", "alt+cmd+right"], ["Go to Next Time Marker", ">"],
+  ["Go to Playback End", "end"], ["Go to Playback Start", "home"],
+  ["Go to Previous Keyframe", "alt+cmd+left"], ["Go to Previous Time Marker", "<"],
+  ["Graph Editor", "alt+l"], ["Group", "cmd+g"], ["Group and Flatten", "alt+cmd+g"],
+  ["Import Assets…", "cmd+i"], ["Import Scene…", "alt+cmd+i"], ["JavaScript Editor", "alt+f"],
+  ["Jump Backward", "cmd+shift+left"], ["Jump Forward", "cmd+shift+right"],
+  ["Magic Easing > Slow In, Slow Out", "shift+1"], ["Magic Easing > Very Slow In, Very Slow Out", "shift+2"],
+  ["Magic Easing > Spring Out", "shift+3"], ["Magic Easing > Bounce Out", "shift+4"],
+  ["Magic Easing > None", "shift+5"],
+  ["Make Editable", "cmd+e"], ["Make Editable Copy", "cmd+shift+e"], ["Mesh Tool", "m"],
+  ["Move Backward 1 Frame", "cmd+left"], ["Move Forward 1 Frame", "cmd+right"],
+  ["New Composition", "cmd+shift+n"], ["Nudge Keyframes Backward", "-"], ["Nudge Keyframes Forward", "="],
+  ["Parent", "cmd+p"], ["Pen Tool", "p"], ["Pencil Tool", "l"], ["Pivot Tool", "y"], ["Play / Stop", "space"],
+  ["Pre-Compose Based on Selection Bounds", "alt+shift+c"], ["Project Settings…", "alt+p"],
+  ["Quick Add", "cmd+."], ["Redo", "cmd+shift+z"],
+  ["Render Current Frame…", "cmd+shift+r"], ["Render Manager", "alt+b"],
+  ["Scene Window (Time Editor)", "alt+k"], ["Select Tool", "v"],
+  ["Set Composition to Playback Range", "alt+r"], ["Set Playback End to Current Frame", "n"],
+  ["Set Playback Range to Selection", "alt+s"], ["Set Playback Start to Current Frame", "b"],
+  ["Set Transform Keyframes > All", "k"], ["Set Transform Keyframes > Position", "shift+t"],
+  ["Set Transform Keyframes > Rotation", "shift+r"], ["Set Transform Keyframes > Scale", "shift+s"],
+  ["Show 2D Grid", "alt+g"], ["Show Guides", "cmd+;"], ["Show in Attribute Editor", "cmd+shift+u"],
+  ["Show in Scene Window", "cmd+l"], ["Show Pixel Grid", "alt+i"], ["Show Rulers", "cmd+r"],
+  ["Show/Hide Animation", "cmd+shift+h"], ["Show/Hide Selected", "cmd+shift+v"], ["Snapping", "cmd+u"],
+  ["Solo Selection in Viewport", "alt+w"], ["Stroke Width Tool", "w"], ["Text Tool", "t"],
+  ["Toggle Background Alpha", "alt+cmd+b"], ["Un-Group", "cmd+shift+g"], ["Un-Parent", "cmd+shift+p"],
+  ["Undo", "cmd+z"], ["Zoom In", "cmd+="], ["Zoom Out", "cmd+-"]
+];
+// Commands without a default key: listed once given a key in the Shortcut
+// Manager (Cavalry's shortcuts.json, by action name).
+var CAVALRY_ACTIONS = {
+  enableTimeRemappingAction: "Enable Time Remapping",
+  mlspAction: "Move Layer Start to Current Frame",
+  mlepAction: "Move Layer End to Current Frame",
+  slipAction: "Set Layer In Point to Current Frame",
+  slopAction: "Set Layer Out Point to Current Frame",
+  toggleTimeGraphEditor: "Toggle Time/Graph Editor"
+};
+
+// "Ctrl+Alt+H" (Cavalry's shortcuts.json) -> "cmd+alt+h".
+function keysFromCavalry(str) {
+  var names = { ctrl: "cmd", meta: "ctrl", alt: "alt", shift: "shift" };
+  var parts = String(str || "").split("+");
+  var out = [];
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i].toLowerCase();
+    out.push(i < parts.length - 1 && names[p] ? names[p] : p);
+  }
+  return out.join("+");
+}
+
+// [{ label, keys }], sorted: the list above, plus the keys the user gave
+// to the commands of CAVALRY_ACTIONS (macOS: read from shortcuts.json).
+function cavalryShortcutList() {
+  var out = [];
+  for (var i = 0; i < CAVALRY_SHORTCUTS.length; i++) {
+    out.push({ label: CAVALRY_SHORTCUTS[i][0], keys: CAVALRY_SHORTCUTS[i][1] });
+  }
+  var home = IS_MAC ? (String(getScriptsRoot()).match(/^(\/Users\/[^\/]+)/) || [])[1] : null;
+  if (home) {
+    try {
+      var own = JSON.parse(api.readFromFile(home + "/Library/Preferences/Cavalry/shortcuts.json")).shortcuts || {};
+      for (var a in CAVALRY_ACTIONS) {
+        if (CAVALRY_ACTIONS.hasOwnProperty(a) && own[a] && parseKeys(keysFromCavalry(own[a]))) {
+          out.push({ label: CAVALRY_ACTIONS[a], keys: keysFromCavalry(own[a]) });
+        }
+      }
+    } catch (e) {}
+  }
+  out.sort(function (x, y) {
+    return x.label.toLowerCase() < y.label.toLowerCase() ? -1 : 1;
+  });
+  return out;
+}
+
+// ------------------------------------------------------------
+// "Shortcut as Button" window
+// ------------------------------------------------------------
+// The list of Cavalry's shortcuts (search, double-click to add), or any
+// keys typed by hand.
+var keysDialog = null;
+var keysTargetId = null;
+var keysEditUid = null;
+
+// Adds (or edits, with editUid) a "Shortcut as Button".
+function saveKeysButton(keys, name) {
+  keys = String(keys || "").replace(/\s+/g, "").toLowerCase();
+  if (!parseKeys(keys)) {
+    showMessage("Choose a shortcut in the list, or type keys such as alt+w or alt+shift+w.");
+    return false;
+  }
+  name = trimName(name) || prettyKeys(keys);
+  if (keysEditUid) {
+    var uidToEdit = keysEditUid;
+    mutateBarShortcuts(keysTargetId, function (l) {
+      var idx = indexOfUidIn(l, uidToEdit);
+      if (idx !== -1) {
+        l[idx].keys = keys;
+        l[idx].label = name;
+      }
+    });
+    logStatus("Shortcut as Button updated: " + name + " (" + prettyKeys(keys) + ")");
+  } else {
+    mutateBarShortcuts(keysTargetId, function (l) {
+      l.push({ kind: "keys", keys: keys, label: name, uid: makeUid("keys_" + name) });
+    });
+    logStatus("Shortcut as Button added: " + name + " (" + prettyKeys(keys) + ")");
+  }
+  return true;
+}
+
+function openKeysDialog(targetId, editUid) {
+  keysTargetId = typeof targetId === "string" ? targetId : currentBar.id;
+  keysEditUid = editUid || null;
+  // Rebuilt on every opening so the search field gets the keyboard focus.
+  if (keysDialog) {
+    try { keysDialog.close(); } catch (e0) {}
+    keysDialog = null;
+  }
+  var shortcuts = cavalryShortcutList();
+  var byUuid = {};
+  var model = [];
+  for (var i = 0; i < shortcuts.length; i++) {
+    var uuid = "cav_" + i;
+    byUuid[uuid] = shortcuts[i];
+    model.push({ uuid: uuid, label: shortcuts[i].label + "    " + prettyKeys(shortcuts[i].keys),
+      tooltip: shortcuts[i].label + "\n" + prettyKeys(shortcuts[i].keys) });
+  }
+  var list = makePickerList("No shortcuts");
+  list.setSelectionMode("single");
+  list.showSearchBar(false);
+  list.setModel(model);
+
+  var searchField = new ui.LineEdit();
+  searchField.setPlaceholder("Search Cavalry shortcuts…");
+  searchField.onValueChanged = function () {
+    list.setSearchFilter(String(searchField.getText() || ""));
+  };
+  var keysField = new ui.LineEdit();
+  keysField.setPlaceholder("Keys, e.g. alt+w   alt+shift+w   cmd+d   ctrl+shift+left");
+  var nameField = new ui.LineEdit();
+  nameField.setPlaceholder("Button name (shown in its tooltip)");
+  var help = new ui.Label("Modifiers: cmd, ctrl, alt (option), shift. Keys: a letter, a digit, a sign,\n" +
+    "or return, tab, space, delete, escape, left, right, up, down, home, end, f1-f19.");
+  try { help.setTextColor("#8a8a8a"); } catch (eH) {}
+
+  list.onSelectionChanged = function (sel) {
+    var s = sel && sel.length ? byUuid[sel[0]] : null;
+    if (s) {
+      keysField.setText(s.keys);
+      nameField.setText(s.label);
+    }
+  };
+  list.onRowDoubleClicked = function (uuid) {
+    var s = byUuid[uuid];
+    if (s && saveKeysButton(s.keys, s.label)) {
+      keysDialog.close();
+    }
+  };
+
+  var saveBtn = new ui.Button(keysEditUid ? "Save" : "Add");
+  saveBtn.onClick = function () {
+    if (saveKeysButton(keysField.getText(), nameField.getText())) {
+      keysDialog.close();
+    }
+  };
+  var cancelBtn = new ui.Button("Cancel");
+  cancelBtn.onClick = function () {
+    keysDialog.close();
+  };
+  var buttons = new ui.HLayout();
+  buttons.addStretch();
+  buttons.add(cancelBtn, saveBtn);
+
+  if (keysEditUid) {
+    var items = getBarShortcuts(keysTargetId);
+    var item = items[indexOfUidIn(items, keysEditUid)] || {};
+    keysField.setText(item.keys || "");
+    nameField.setText(item.label || "");
+  }
+
+  var layout = new ui.VLayout();
+  layout.setMargins(8, 8, 8, 8);
+  layout.add(searchField);
+  layout.add(sectionTitle((keysEditUid ? "Edit Shortcut as Button: " : "Shortcut as Button: ") + barDisplayName(keysTargetId)));
+  layout.add(new ui.Label("Double-click a Cavalry shortcut to add it as a button, or type the keys below."));
+  layout.add(list);
+  layout.add(keysField);
+  layout.add(help);
+  layout.add(nameField);
+  layout.add(buttons);
+  keysDialog = new ui.Container();
+  keysDialog.setMinimumWidth(380);
+  keysDialog.setMinimumHeight(560);
+  keysDialog.setLayout(layout);
+  showOnTop(keysDialog);
+}
+
 function createToolbarButton(shortcut) {
+  if (shortcut.kind === "keys" && !customIconFor(shortcut)) {
+    return createKeysTile(shortcut);
+  }
   if (shortcut.kind === "expression" && !customIconFor(shortcut)) {
     return createExpressionTile(shortcut, "Expression: " + shortcut.label + "\n" + shortcut.expression +
       "\nClick: apply to the selected attribute(s)\nAlt + click with a layer selected: choose the attribute");
@@ -3133,6 +3588,7 @@ function createToolbarButton(shortcut) {
   var tip = shortcut.kind === "expression" ? "Expression: " + shortcut.label + "\n" + shortcut.expression +
       "\nClick: apply to the selected attribute(s)\nAlt + click with a layer selected: choose the attribute" :
     shortcut.kind === "rig" ? "Rig: " + shortcut.label + (shortcut.description ? "\n" + shortcut.description : "") :
+    shortcut.kind === "keys" ? keysTooltip(shortcut) :
     shortcut.kind === "script" ? "Script: " + shortcut.label :
     shortcut.kind === "layout" ? shortcut.label + "\nWith layers selected: they become its children" :
     (shortcut.preset ? "♥ " + shortcut.label + " (favourite with its settings)" : "Create a " + shortcut.label + " node");
@@ -3153,6 +3609,10 @@ function createToolbarButton(shortcut) {
     try { alt = api.isAltHeld(); } catch (e) {}
     var shift = false;
     try { shift = api.isShiftHeld(); } catch (eS) {}
+    if (shortcut.kind === "keys") { // shortcut as button with a custom icon
+      sendKeys(shortcut);
+      return;
+    }
     if (shortcut.kind === "expression") { // expression with a custom icon
       runExpressionShortcut(shortcut, alt);
       return;
@@ -3634,6 +4094,10 @@ function showEditCellMenu(shortcut) {
     })(n);
   }
   ui.addMenuItem({ name: "" });
+  if (shortcut.kind === "keys") {
+    ui.addMenuItem({ name: "Edit Shortcut as Button…", onMouseRelease: function () { openKeysDialog(currentBar.id, uid); } });
+    ui.addMenuItem({ name: "" });
+  }
   ui.addMenuItem({ name: "Delete", onMouseRelease: function () { deleteShortcut(uid); } });
   ui.showContextMenu();
   restoreMainMenuSoon();
@@ -4388,15 +4852,15 @@ function buildManagerModel() {
     }
     var row = {
       uuid: s.uid,
-      label: (s.preset ? "♥ " : "") + (s.kind === "expression" ? " π  " : "") + s.label,
+      label: (s.preset ? "♥ " : "") + (s.kind === "expression" ? " π  " : "") + (s.kind === "keys" ? "⌨  " : "") + s.label,
       tooltip: (s.preset ? "Favourite — " : "") + (s.kind === "script" ? fromPortablePath(s.path) :
-        (s.kind === "expression" ? "Expression: " + s.expression :
+        (s.kind === "keys" ? "Cavalry shortcut: " + prettyKeys(s.keys) : s.kind === "expression" ? "Expression: " + s.expression :
           (s.kind === "rig" ? "Rig — " + (s.description || s.label) :
           s.kind === "layout" ? "Shelf action" :
             (s.type || s.nodeName || "")))),
       threeDotsMenu: true
     };
-    var icon = s.kind === "expression" ? null :
+    var icon = (s.kind === "expression" || (s.kind === "keys" && !customIconFor(s))) ? null :
       (resolveIcon(s) || (s.kind === "script" ? NODE_ICONS_DIR + "/javascript.png" : null));
     if (icon) {
       row.icon = icon;
@@ -4588,6 +5052,10 @@ function openManager() {
         items.push({ label: "Edit Expression…", id: "expr_edit" });
         items.push({ separator: true });
       }
+      if (i0 !== -1 && l0[i0].kind === "keys") {
+        items.push({ label: "Edit Shortcut as Button…", id: "keys_edit" });
+        items.push({ separator: true });
+      }
       var page0 = i0 !== -1 ? pageOf(l0[i0]) : 0;
       for (var p = 1; p <= PAGE_COUNT; p++) {
         if (p !== page0) {
@@ -4599,6 +5067,10 @@ function openManager() {
     managerList.onContextMenuAction = function (uid, actionId) {
       if (actionId === "expr_edit") {
         openExpressionDialog(editedBarId, uid);
+        return;
+      }
+      if (actionId === "keys_edit") {
+        openKeysDialog(editedBarId, uid);
         return;
       }
       if (actionId.indexOf("page_") !== 0) {
@@ -5272,7 +5744,7 @@ function restoreMainMenuSoon() {
 
 // Node shortcuts only (no scripts, spacers, shapes or filters).
 function canPickAttribute(shortcut) {
-  if (shortcut.kind === "script" || shortcut.kind === "spacer" || shortcut.kind === "expression" || shortcut.kind === "rig" || shortcut.kind === "layout") {
+  if (shortcut.kind === "script" || shortcut.kind === "spacer" || shortcut.kind === "expression" || shortcut.kind === "rig" || shortcut.kind === "layout" || shortcut.kind === "keys") {
     return false;
   }
   var cat = getShortcutCategory(shortcut);
@@ -5794,6 +6266,7 @@ function addMenuEntries(targetId, withSpacer) {
   // From Settings (no Spacer entry), "Save as a shortcut" starts checked.
   var fromSettings = withSpacer === false;
   ui.addMenuItem({ name: "Add Expression…", onMouseRelease: function () { openExpressionDialog(targetId, null, fromSettings); } });
+  ui.addMenuItem({ name: "Add Shortcut as Button…", onMouseRelease: function () { openKeysDialog(targetId); } });
   if (withSpacer !== false) {
     ui.addMenuItem({ name: "Spacer", onMouseRelease: function () { addSpacer(targetId); } });
   }
@@ -6123,7 +6596,7 @@ function showAddMenu(targetId) {
 var hiddenWhileInactive = [];
 
 function secondaryWindows() {
-  return [managerContainer, pickerContainer, exprDialog, rigDialog, barDialog, configDialog, aboutDialog];
+  return [managerContainer, pickerContainer, exprDialog, keysDialog, rigDialog, barDialog, configDialog, aboutDialog];
 }
 
 function onCavalryActiveChanged(state) {

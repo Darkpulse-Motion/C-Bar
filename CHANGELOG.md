@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Shortcut as Button** (+ › *Add Shortcut as Button…*, idea and first code by Antonin): turns a Cavalry shortcut into a button, to reach commands that scripts cannot run (e.g. *Solo Selection in Viewport*). The window lists Cavalry's shortcuts with a search field, like *Add Node*: double-click one to add it. Any other keys can be typed (`alt+w`, `cmd+shift+d`, `f5`…); on macOS, the keys you gave in the Shortcut Manager to *Enable Time Remapping*, *Set Layer In / Out Point*… are listed too. A click on the button presses the keys in Cavalry's main window. On macOS, Cavalry must be allowed in *System Settings › Privacy & Security › Accessibility*: C-Bar says so when macOS refuses the keys. The button shows the keys on a small tile (or the custom icon `C-Bar_assets/icons/<Button name>.png`), and is edited from *Settings › … › Edit Shortcut as Button…* or from its right-click menu in Organize Layout.
+
 ## v0.9.5 — 2026-10-23 (beta)
 
 ### Fixed
