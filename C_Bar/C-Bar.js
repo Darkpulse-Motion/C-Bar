@@ -1945,12 +1945,109 @@ function activePalette() {
 //                           named "Color Array_<Palette>"
 //   Shift + click + layer:  same, connected to the Fill, child of the
 //                           layer, named "Color Array_<Layer>_<Palette>"
+//   Shift + click with Color Array(s) selected, or layers coloured by
+//                           one: their colours are replaced by the
+//                           palette's (no new node)
+
+// Selected Color Arrays, and those that drive an attribute of a
+// selected layer (its Fill, a Stroke…).
+function colorArraysFromSelection() {
+  var sel = api.getSelection() || [];
+  var out = [];
+  function isColorArray(id) {
+    try { return api.getLayerType(id) === "colorArray"; } catch (e) { return false; }
+  }
+  for (var i = 0; i < sel.length; i++) {
+    if (isColorArray(sel[i])) {
+      if (out.indexOf(sel[i]) === -1) {
+        out.push(sel[i]);
+      }
+      continue;
+    }
+    var ins = [];
+    try { ins = api.getInConnectedAttributes(sel[i]) || []; } catch (e1) {}
+    for (var j = 0; j < ins.length; j++) {
+      var conn = "";
+      try { conn = api.getInConnection(sel[i], ins[j]) || ""; } catch (e2) {}
+      var src = String(conn).split(".")[0];
+      if (src && isColorArray(src) && out.indexOf(src) === -1) {
+        out.push(src);
+      }
+    }
+  }
+  return out;
+}
+
+// Colours of a palette (read from a temporary Color Array), or null.
+function paletteColors(pal) {
+  var tmp = "";
+  try { tmp = api.createColorArrayFromPalette(pal.name, pal.scope); } catch (e) {}
+  if (!tmp) {
+    try { tmp = api.createColorArrayFromPalette(pal.name); } catch (e1) {}
+  }
+  if (!tmp) {
+    return null;
+  }
+  var cols = [];
+  try {
+    var n = api.getArrayCount(tmp, "array");
+    for (var i = 0; i < n; i++) {
+      cols.push(api.get(tmp, "array." + i));
+    }
+  } catch (e2) {}
+  try { api.deleteLayer(tmp); } catch (e3) {}
+  return cols;
+}
+
+// The selected Color Arrays keep their name and connections, and get as
+// many entries as the palette. An entry driven by a connection is kept.
+function swapColorArraysToPalette(arrays, pal) {
+  var cols = paletteColors(pal);
+  if (!cols || !cols.length) {
+    showMessage("Palette \"" + pal.name + "\" not found or empty");
+    return;
+  }
+  var kept = 0;
+  for (var a = 0; a < arrays.length; a++) {
+    var ca = arrays[a];
+    var n = 0;
+    try { n = api.getArrayCount(ca, "array"); } catch (e) {}
+    while (n < cols.length) {
+      api.addArrayIndex(ca, "array");
+      n++;
+    }
+    while (n > cols.length) {
+      api.removeArrayIndex(ca, "array." + (n - 1));
+      n--;
+    }
+    for (var i = 0; i < cols.length; i++) {
+      var attr = "array." + i;
+      var conn = "";
+      try { conn = api.getInConnection(ca, attr) || ""; } catch (e2) {}
+      if (conn) {
+        kept++;
+        continue;
+      }
+      var v = {};
+      v[attr] = cols[i];
+      api.set(ca, v);
+    }
+  }
+  logStatus(arrays.length + " Color Array(s) now use the palette \"" + pal.name + "\" (" + cols.length + " colours)" +
+    (kept ? ", " + kept + " connected entr" + (kept > 1 ? "ies" : "y") + " kept" : "") + ".");
+}
+
 function createColorArray(shortcut, fromPalette) {
   var pal = null;
   if (fromPalette) {
     pal = activePalette();
     if (!pal) {
       showMessage("No active palette in the Color window");
+      return;
+    }
+    var arrays = colorArraysFromSelection();
+    if (arrays.length) {
+      swapColorArraysToPalette(arrays, pal);
       return;
     }
   }
@@ -3596,6 +3693,7 @@ function createToolbarButton(shortcut) {
   if (altType === "colorArray") {
     tip += "\nWith a layer selected: connected to its Fill, as a child of the layer" +
       "\nShift + click: from the active palette of the Color window" +
+      "\nShift + click with a Color Array (or a layer it colours) selected: its colours become the palette's" +
       "\nAlt + click with a layer selected: choose the colour to drive";
   } else if (isFilterType(altType)) {
     tip += "\nAlt + click with a layer selected: add it to the layer's filters";
