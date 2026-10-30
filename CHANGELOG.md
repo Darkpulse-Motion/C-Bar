@@ -1,10 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Added
-- **Download Icon Pack**: *Settings › Update* only replaces `C-Bar.js`, so after an update the icon pack may be missing. *Set Icon…* then shows a **Download Icon Pack** button: C-Bar fetches the pack from GitHub (this version's archive) and adds it to `C-Bar_assets/icons/base/`, without replacing any file.
-
 ## v0.9.6 — 2026-10-30 (beta)
 
 ### Added
@@ -14,7 +9,8 @@
   - **Icon Colour**: White, Green, Yellow, Blue, Red or any hex colour. The original image is kept, so colours never degrade; it also works on Cavalry's own node icons.
   - **Remove Custom Icon**: back to the default icon.
   - **Your own icons** now go in `C-Bar_assets/icons/customs/` (a PNG named like the button, as before; icons left in `icons/` still work). The copies made by C-Bar go there too, and *Open Script Icons Folder* opens it.
-  - Exported bars carry these icons. *Settings › Update* only replaces `C-Bar.js`: download the release zip once to get the icon pack.
+  - Exported bars carry these icons.
+  - **Download Icon Pack**: *Settings › Update* only replaces `C-Bar.js`, so after an update the icon pack may be missing. *Set Icon…* then shows a **Download Icon Pack** button: C-Bar fetches the pack from GitHub (this version's archive) and adds it to `C-Bar_assets/icons/base/`, without replacing any file.
 - Color Array button: **Shift + click with a Color Array selected** (or a layer coloured by one) replaces its colours by those of the active palette of the Color window, instead of creating a new node (idea by Antonin). The node keeps its name and connections, and gets as many entries as the palette; an entry driven by a connection is left as it is.
 
 ## v0.9.5 — 2026-10-23 (beta)
