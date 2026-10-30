@@ -257,7 +257,7 @@ function getPluginIconIndex() {
 function customIconFor(shortcut) {
   // Icon chosen with Set Icon… (see "Button icons").
   if (shortcut && shortcut.icon) {
-    var own = ICONS_DIR + "/" + shortcut.icon;
+    var own = iconPathFor(shortcut.icon);
     try {
       if (api.filePathExists(own)) {
         return own;
@@ -3674,10 +3674,20 @@ function openKeysDialog(targetId, editUid) {
 // ------------------------------------------------------------
 // shortcut.icon: the button's icon, relative to C-Bar_assets/icons (an icon
 // of the pack, "base/bolt_40px.png", or a copy made by C-Bar,
-// "Null_1730280000000.png"). shortcut.iconBase: the image it was coloured
+// "Null_1730280000000.png"), or one of Cavalry's ("cavalry:nodes/null.png"). shortcut.iconBase: the image it was coloured
 // from (kept so that colours never degrade); shortcut.iconColor: the colour.
 // C-Bar only ever deletes the copies it made (name ending in _<13 digits>).
 var ICON_PACK_DIR = ICONS_DIR + "/base";
+// shortcut.icon can also be one of Cavalry's icons: "cavalry:nodes/null.png".
+var CAVALRY_ICON_PREFIX = "cavalry:";
+
+function iconPathFor(name) {
+  name = String(name || "");
+  if (name.indexOf(CAVALRY_ICON_PREFIX) === 0) {
+    return api.getAppAssetsPath() + "/Icons/" + name.substr(CAVALRY_ICON_PREFIX.length);
+  }
+  return ICONS_DIR + "/" + name;
+}
 var ICON_COLORS = ["White", "Green", "Yellow", "Blue", "Red"];
 var ICON_COLOR_HEX = { White: "#FFFFFF", Green: "#4FFD7A", Yellow: "#FFD84D", Blue: "#4DA6FF", Red: "#FF5A5A" };
 
@@ -4102,43 +4112,59 @@ function runIconMenuAction(barId, uid, actionId) {
 }
 
 // ------------------------------------------------------------
-// "Set Icon" window: the icon pack, with a search field and previews
+// "Set Icon" window: icon pack and Cavalry icons, with search and previews
 // ------------------------------------------------------------
-// A grid of image buttons (one per icon of the pack). The search shows the
-// matching icons in the first cells and hides the others, so no widget is
-// ever destroyed while the window is open.
+// Each tab is a grid of image buttons. The search shows the matching
+// icons in the first cells and hides the others, so no widget is ever
+// destroyed while the window is open. A grid has at most maxCells cells:
+// Cavalry has about 900 icons, the search narrows them down.
 var ICON_GRID_COLUMNS = 8;
+var CAVALRY_ICON_CELLS = 160;
 var iconDialog = null;
 
-function openIconPicker(barId, uid) {
-  var item = findShortcut(barId, uid);
-  if (!item) {
-    return;
+// Cavalry's own icons (Icons/ and Icons/nodes/), stored as "cavalry:<path>".
+function listCavalryIcons() {
+  var root = api.getAppAssetsPath() + "/Icons";
+  var out = [];
+  var dirs = ["", "nodes/"];
+  for (var d = 0; d < dirs.length; d++) {
+    var files = [];
+    try { files = api.listDirectory(root + "/" + dirs[d]) || []; } catch (e) {}
+    for (var i = 0; i < files.length; i++) {
+      var file = String(files[i]).split(/[\/\\]/).pop();
+      var m = file.match(/^(.+)\.png$/i);
+      if (m && !/@2x$/i.test(m[1])) {
+        out.push({ name: (dirs[d] ? "node " : "") + m[1], file: CAVALRY_ICON_PREFIX + dirs[d] + file });
+      }
+    }
   }
-  if (iconDialog) {
-    try { iconDialog.close(); } catch (e0) {}
-    iconDialog = null;
-  }
-  var icons = listPackIcons();
+  out.sort(function (a, b) {
+    return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
+  });
+  return out;
+}
+
+// { scroll, filter(text) -> number shown }
+function makeIconGrid(icons, maxCells, onPick) {
+  var count = Math.min(icons.length, maxCells);
   var cells = [];
   var cellIcon = [];
   var rows = [];
   var grid = new ui.VLayout();
   grid.setSpaceBetween(2);
-  for (var r = 0; r * ICON_GRID_COLUMNS < Math.max(icons.length, 1); r++) {
+  for (var r = 0; r * ICON_GRID_COLUMNS < Math.max(count, 1); r++) {
     var rowLayout = new ui.HLayout();
     rowLayout.setSpaceBetween(2);
     rowLayout.setMargins(0, 0, 0, 0);
-    for (var c = 0; c < ICON_GRID_COLUMNS && r * ICON_GRID_COLUMNS + c < icons.length; c++) {
+    for (var c = 0; c < ICON_GRID_COLUMNS && r * ICON_GRID_COLUMNS + c < count; c++) {
       (function (k) {
-        var btn = new ui.ImageButton(ICONS_DIR + "/" + icons[k].file);
+        var btn = new ui.ImageButton(iconPathFor(icons[k].file));
         btn.setImageSize(28, 28);
         btn.setSize(38, 38);
         btn.setDrawStroke(false);
         btn.onClick = function () {
           if (cellIcon[k]) {
-            setShortcutIconFile(barId, uid, cellIcon[k].file);
-            iconDialog.close();
+            onPick(cellIcon[k]);
           }
         };
         cells.push(btn);
@@ -4152,12 +4178,16 @@ function openIconPicker(barId, uid) {
     grid.add(row);
   }
   grid.addStretch();
+  var scroll = new ui.ScrollView();
+  scroll.setLayout(grid);
+  scroll.setFixedHeight(360);
 
-  function showIcons(filter) {
-    var words = String(filter || "").toLowerCase().replace(/[-_]+/g, " ").split(/\s+/).filter(function (w) { return w.length; });
-    var shown = 0;
+  function filter(text) {
+    var words = String(text || "").toLowerCase().replace(/[-_]+/g, " ").split(/\s+/).filter(function (w) { return w.length; });
+    var found = 0;
     for (var i = 0; i < icons.length; i++) {
-      var name = icons[i].name.toLowerCase().replace(/[-_]+/g, " ");
+      // "addArray" is also found with "add array".
+      var name = icons[i].name.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/[-_]+/g, " ");
       var ok = true;
       for (var w = 0; w < words.length; w++) {
         if (name.indexOf(words[w]) === -1) {
@@ -4165,13 +4195,17 @@ function openIconPicker(barId, uid) {
           break;
         }
       }
-      if (ok) {
-        cells[shown].setImage(ICONS_DIR + "/" + icons[i].file);
-        cells[shown].setToolTip(icons[i].name);
-        cellIcon[shown] = icons[i];
-        shown++;
+      if (!ok) {
+        continue;
       }
+      if (found < cells.length) {
+        cells[found].setImage(iconPathFor(icons[i].file));
+        cells[found].setToolTip(icons[i].name);
+        cellIcon[found] = icons[i];
+      }
+      found++;
     }
+    var shown = Math.min(found, cells.length);
     for (var j = 0; j < cells.length; j++) {
       cells[j].setHidden(j >= shown);
       if (j >= shown) {
@@ -4181,7 +4215,38 @@ function openIconPicker(barId, uid) {
     for (var q = 0; q < rows.length; q++) {
       rows[q].setHidden(q * ICON_GRID_COLUMNS >= shown);
     }
-    countLabel.setText(shown + " / " + icons.length + " icons");
+    return found;
+  }
+  return { scroll: scroll, filter: filter };
+}
+
+function openIconPicker(barId, uid) {
+  var item = findShortcut(barId, uid);
+  if (!item) {
+    return;
+  }
+  if (iconDialog) {
+    try { iconDialog.close(); } catch (e0) {}
+    iconDialog = null;
+  }
+  function pick(icon) {
+    setShortcutIconFile(barId, uid, icon.file);
+    iconDialog.close();
+  }
+  var packIcons = listPackIcons();
+  var cavalryIcons = listCavalryIcons();
+  var packGrid = makeIconGrid(packIcons, packIcons.length, pick);
+  var cavalryGrid = makeIconGrid(cavalryIcons, CAVALRY_ICON_CELLS, pick);
+  var packCount = new ui.Label("");
+  var cavalryCount = new ui.Label("");
+  try { packCount.setTextColor("#8a8a8a"); cavalryCount.setTextColor("#8a8a8a"); } catch (eC) {}
+
+  function showIcons(text) {
+    var p = packGrid.filter(text);
+    packCount.setText(p + " / " + packIcons.length + " icons");
+    var n = cavalryGrid.filter(text);
+    cavalryCount.setText(n > CAVALRY_ICON_CELLS ? CAVALRY_ICON_CELLS + " shown of " + n + " — type to narrow the search" :
+      n + " / " + cavalryIcons.length + " icons");
   }
 
   var searchField = new ui.LineEdit();
@@ -4189,12 +4254,19 @@ function openIconPicker(barId, uid) {
   searchField.onValueChanged = function () {
     showIcons(searchField.getText());
   };
-  var countLabel = new ui.Label("");
-  try { countLabel.setTextColor("#8a8a8a"); } catch (eC) {}
 
-  var scroll = new ui.ScrollView();
-  scroll.setLayout(grid);
-  scroll.setFixedHeight(360);
+  var packLayout = new ui.VLayout();
+  packLayout.add(new ui.Label(packIcons.length ? "Click an icon to use it (white: colour it with Icon Colour)." :
+    "No icon pack in " + ICON_PACK_DIR + ": use Other PNG…"));
+  packLayout.add(packGrid.scroll);
+  packLayout.add(packCount);
+  var cavalryLayout = new ui.VLayout();
+  cavalryLayout.add(new ui.Label("Cavalry's own icons (interface and nodes). Click one to use it."));
+  cavalryLayout.add(cavalryGrid.scroll);
+  cavalryLayout.add(cavalryCount);
+  var tabs = new ui.TabView();
+  tabs.add("C-Bar Icons", packLayout);
+  tabs.add("Cavalry Icons", cavalryLayout);
 
   var otherBtn = new ui.Button("Other PNG…");
   otherBtn.onClick = function () {
@@ -4215,10 +4287,7 @@ function openIconPicker(barId, uid) {
   layout.setMargins(8, 8, 8, 8);
   layout.add(searchField);
   layout.add(sectionTitle("Icon for \"" + item.label + "\""));
-  layout.add(new ui.Label(icons.length ? "Click an icon to use it (white: colour it with Icon Colour)." :
-    "No icon pack in " + ICON_PACK_DIR + ": use Other PNG…"));
-  layout.add(scroll);
-  layout.add(countLabel);
+  layout.add(tabs);
   layout.add(buttons);
   iconDialog = new ui.Container();
   iconDialog.setMinimumWidth(ICON_GRID_COLUMNS * 40 + 40);
